@@ -2,12 +2,17 @@
 # Tools {#sec-tool}
 
 
+First clone this repo using the command `git clone`. 
+
+Once you have the project files locally you can follow the instruction below to build the html book example using quarto environment.
+
+
 ## Running the example on Visual studio code
 
 An easy way to manage your project and git is through visual studio code. You need to do the following step-by-step:
 
-1. Open the software, select "File" and open the folder you just cloned from the repository (@fig-vs-folder).
-2. Check the extensions installed. If you are using virtual machine, the extension of VS code should be pre-installed correctly. The following extensions are required for the project. You can install those extensions by clicking the tool box icon on the side bar and searching for each one by its name, then clicking "Install" (@fig-vs-extensions).
+1. Open VS code, select "File" and open the folder you just cloned from the repository (@fig-vs-folder).
+2. Check the extensions installed. The following extensions are required for the project. You can install those extensions by clicking the tool box icon on the side bar and searching for each one by its name, then clicking "Install" (@fig-vs-extensions).
     * Python, by Microsoft
     * Quarto, by Quarto
     * R, by REditorSupport
@@ -15,8 +20,8 @@ An easy way to manage your project and git is through visual studio code. You ne
     * Git Graph, by mhutchie
 3. Open the terminal bar in VS code (@fig-vs-check)
 4. Input `quarto check` in the terminal and then `enter` to check the environment setting of you quarto (@fig-quarto-check). 
-5. Input `quarto preview` in the terminal to open a temperary report on your browser(@fig-quarto-preview). It may take 1~2 minutes for your first run. No worries, be patient. You can edit the content in the `qmd` file and the report will adapt the changes automatically when you save them. It is like that you are building a website or using overleaf.
-6. Open a new terminal and input `quarto render` in the terminal to generate a report in html format in the `_book` folder(@fig-quarto-render).
+5. Input `quarto preview` in the terminal to open a temperary report on your browser(@fig-quarto-preview). It may take 1~2 minutes for your first run. You can edit the content in the `qmd` file and the report will adapt the changes automatically when you save them. 
+6. you can also use the `render` function by opening a new terminal and inputting `quarto render` in the terminal to generate a report in html format in the `_book` folder(@fig-quarto-render).
 
 ```{r vs-folder, out.width='100%', fig.align='center', fig.cap='Rosmose setup, do not install miniconda'}
 #| label: fig-vs-folder
@@ -77,7 +82,7 @@ knitr::include_graphics('Figures/git_push.png')
 
 
 
-You can also do all the steps above in `command` or `terminal`. For additional information you can find a lot of tutorials online, like [this one](https://www.earthdatascience.org/workshops/intro-version-control-git/basic-git-commands/). Git is a very powerful tool and it will very useful in your future courses or career.
+You can also do all the steps above in `command` or `terminal`. For additional information you can find a lot of tutorials online, like [this one](https://www.earthdatascience.org/workshops/intro-version-control-git/basic-git-commands/). 
 
 
 ## Quarto syntax {#rmd-syntax}
