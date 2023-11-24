@@ -1,0 +1,588 @@
+# Market {-}
+
+```{rosmose market}
+! OSMOSE ET market
+```
+
+
+```{rosmose}
+water_cost = 0.0025 [Euro/kg] # Water price in Switzerland is 2-2.5 CHF/m3 (wfw.ch and Swiss gas and water industry association)
+CW_ref_LOAD = 1000 [kg/h] # Reference capacity of water supply
+elec_cost = 0.25 [Euro/kWh] # price of electricity for businesses in Switzerland 2023 (Oiken)
+ELEC_ref_POWER = 1000 [kW] # Reference capacity of electricity supply
+natgas_cost = 0.119 [Euro/kWh] # price of natural gas for businesses in Switzerland (globalpetrolprices.com)
+NATGAS_ref_LOAD = 1000 [kW] #Reference capacity of natural gas supply
+CO2_cost = 0.0084 [Euro/kg] # price of CO2 sold by the market to the process (highly volatile prices due to energy crisis)
+CO2_ref_LOAD = 1 [kg/h] # Reference load of CO2 needed by the process
+dioxidetax_cost = 100 [Euro/t] # Tax of CO2 emitted to the market (range 100 - 120 €/tonne in Europe)
+CO2taxed_ref_LOAD = 1000 [kg/h] # Reference capacity of CO2 emitted
+fmilk_price = 0.5 [Euro/kg] # Average price of milk paid to farmers between 500-650 euro/m3
+FRESHMILK_ref_LOAD = 1000 [kg/h] # Reference capacity of fresh milk feed
+thick_price = 0.87 [Euro/kg] #corn starch price in Switzerland
+THICK_ref_LOAD = 1 [kg/h] # Reference capacity of thickener requirement
+salt_price = 0.13 [Euro/kg] #salt price in Switzerland
+SALT_ref_LOAD = 1 [kg/h] # Reference capacity of salt requirement
+sugar_price = 0.64 [Euro/kg] #sugar price in Switzerland
+SUGAR_ref_LOAD = 100 [kg/h] # Reference capacity of sugar requirement
+cream_price = 2.21 [Euro/kg] # Average price of cream in Switzerland
+CREAM_ref_LOAD = 100 [kg/h] # Reference capacity of cream product
+cheese_price = 8.78 [Euro/kg] # Average price of cheese in Switzerland
+CHEESE_ref_LOAD = 100 [kg/h] # Reference capacity of cheese product
+mesost_price = 20 [Euro/kg] # Average price of mesost (brown cheese) in Switzerland (Migros 15-25 CHF/kg)
+MESOST_ref_LOAD = 100 [kg/h] # Reference capacity of cheese product
+softdrink_price = 2.5 [Euro/kg] # Average price of soft drinks in Switzerland (Migros 2.8 CHF/L)
+SOFTDRINK_ref_LOAD = 1000 [kg/h] # Reference capacity of soft drink product
+biogas_price = 0.083 [Euro/kWh] # biogas is 30% cheaper than natural gas (assuming it is 50% CH4 and 50% CO2)
+BIOGAS_ref_LOAD = 100 [kg/h] # Reference capacity of biogas product
+fertilizer_price = 0.9 [Euro/kg] # Average price of urea based fertilizer in Europe
+FERTZ_ref_LOAD = 1000 [kg/h] # Reference capacity of fertilizer product
+I_CO2fuel = 2.75 [kg/kg] # Methane direct CO2 emissions factor kgCO2/kg/CH4 (Florez-Orrego 2015)
+r_CO2fuel = 0.0049 [g/kJ] # Methane indirect CO2 emission factor in gCO2/kJCH4 (Florez-Orrego 2015)
+r_CO2ee = 62.63 [g/kWh] # Electricity indirect CO2 emission factor in gCO2/kWh (Florez-Orrego 2015)
+LHV = 50000 [kJ/kg] # Lower heating value of methane
+LHV_biogas = 19100 [kJ/kg] #Lower heating value of biogas 
+```
+
+
+
+```{rosmose} 
+CW_COST = %water_cost% * %CW_ref_LOAD% [Euro/h] # Reference cost of water supply
+CW_COST_BUY = -1 * %CW_COST% *  0.7 [Euro/h] # Assume a factor of 30% for the waste water treatment costs. It can be computed as well assuming the operating costs of a WWT plant
+ELEC_SELL_COST = %elec_cost% * %ELEC_ref_POWER% [Euro/h] # Reference cost of electricity supply 
+NATGAS_COST = %natgas_cost% * %NATGAS_ref_LOAD% [Euro/h] # Reference cost of natural gas supply 
+ELEC_BUY_COST = -1 * %ELEC_SELL_COST% * 0.7 [Euro/h] # Reference cost of electricity purchased by the market from the process, although less attractive to avoid the engine over sizing
+CO2_SELL_COST = %CO2_cost% * %CO2_ref_LOAD% [Euro/h] # Reference cost of CO2 sold from the market to the process
+CO2_TAX_COST = %dioxidetax_cost% / 1000 * %CO2taxed_ref_LOAD% [Euro/h] # Reference tax of CO2 due to emissions to atmosphere
+FRESHMILK_SELL_COST = %fmilk_price% * %FRESHMILK_ref_LOAD% [Euro/h] # Reference price of fresh milk sold from the market to the process
+THICKENER_SELL_COST = %thick_price% * %THICK_ref_LOAD% [Euro/h] # Reference price of thickener sold from the market to the process
+SALT_SELL_COST = %salt_price% * %SALT_ref_LOAD% [Euro/h] # Reference price of salt sold from the market to the process
+SUGAR_SELL_COST = %sugar_price% * %SUGAR_ref_LOAD% [Euro/h] # Reference price of sugar sold from the market to the process
+CREAM_BUY_COST = -1*%cream_price% * %CREAM_ref_LOAD% [Euro/h] # Reference price of cream purchased by the market from the process
+CHEESE_BUY_COST = -1*%cheese_price% * %CHEESE_ref_LOAD% [Euro/h] # Reference price of cheese purchased by the market from the process
+MESOST_BUY_COST = -1*%mesost_price% * %MESOST_ref_LOAD% [Euro/h] # Reference price of mesost purchased by the market from the process
+SOFTDRINK_BUY_COST = -1*%softdrink_price% * %SOFTDRINK_ref_LOAD% [Euro/h] # Reference price of softdrink purchased by the market from the process
+BIOGAS_BUY_COST = -1*%biogas_price% * %BIOGAS_ref_LOAD% * %LHV_biogas% / 3600 [Euro/h] # Reference price of biogas purchased by the market from the process
+FERTZ_BUY_COST = -1*%fertilizer_price% * %FERTZ_ref_LOAD% [Euro/h] # Reference price of fertilizer purchased by the market from the process
+TotalEmittedNG = %I_CO2fuel% * %NATGAS_ref_LOAD% / %LHV% * 3600 + %r_CO2fuel% * %NATGAS_ref_LOAD% *3600 / 1000 [kg/h] # Total flow rate of CO2 emissions from natural gas as fuel
+DirectEmNG = %I_CO2fuel% * %NATGAS_ref_LOAD% / %LHV% * 3600 # Direct flowrate of CO2 emissions from natural gas 
+IndEmittedNG = %r_CO2fuel% * %NATGAS_ref_LOAD% * 3600 / 1000 [kg/h] # Indirect flow rate of CO2 emissions from natural gas
+IndEmittedEE = %r_CO2ee% * %ELEC_ref_POWER% / 1000 [kg/h] # Indirect flow rate of CO2 emissions from electricity
+```
+
+**Layers of the Market ET**
+
+```{rosmose} 
+: OSMOSE LAYERS market
+
+|Layer      |Display name   |shortname  |Unit       |Color  |
+|:----------|:--------------|:----------|:----------|:------|
+|NATGAS     |Gas            |ng         |kW         |green  |
+|ELEC       |Electricity    |elec       |kW         |yellow |
+|WATER      |Water          |water      |kg/h       |blue   |
+|SALT       |Salt           |salt       |kg/h       |grey   |
+|SUGAR      |Sugar          |sugar      |kg/h       |grey   |
+|FRESHMILK  |Fresh milk     |f_milk     |kg/h       |white  |
+|THICKENER  |Thickener      |thick      |kg/h       |orange |
+|CREAM      |Cream          |cream      |kg/h       |white  |
+|CHEESE     |Cheese         |cheese     |kg/h       |white  |
+|MESOST     |Mesost         |mesost     |kg/h       |white  |
+|CO2        |CO2            |co2        |kg/h       |red    |
+|EnvCO2Em   |EnvCO2Em       |envco2     |kg/h       |red    |
+|SOFTDRINK  |Soft drink     |SD         |kg/h       |white  |
+|BIOGAS     |Biogas         |biogas     |kg/h       |green  |
+|FERTZ      |Fertilizer     |fertlizr   |kg/h       |green  |
+
+```
+
+**Units of the Market ET**
+
+```{rosmose} 
+: OSMOSE UNIT market
+
+|unit name     |type   |
+|:-------------|:------|
+|ElecSell      |Utility|
+|ElecBuy       |Utility|
+|NatgasSell    |Utility|
+|EnvCO2tax     |Utility|
+|WaterSell     |Utility|
+|WaterBuy      |Utility|
+|FreshmilkSell |Utility|
+|ThickenerSell |Utility|
+|SaltSell      |Utility|
+|SugarSell     |Utility|
+|CO2Sell       |Utility|
+|CreamBuy      |Utility|
+|CheeseBuy     |Utility|
+|MesostBuy     |Utility|
+|SoftDrinkBuy  |Utility|
+|BiogasBuy     |Utility|
+|FertilizerBuy |Utility|  
+```
+
+## Electricity Selling Unit {-}
+
+Electricity sold by the grid to the process
+
+**Parameters of the Electricity Selling unit**
+
+```{rosmose ElecSell_params}
+: OSMOSE UNIT_PARAM ElecSell
+
+|cost1  |cost2              |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:------------------|:------|:------|:------|:------|:------|:------|
+|0      |%ELEC_SELL_COST%   |0      |0      |0      |0      |0      |1000   |
+```
+
+**Electricity Selling Streams**
+
+*Resource Streams*
+
+Electricity sold from the market to the process and the indirect CO~2~ emissions from the electricity generated by the grid. 
+
+```{rosmose ElecSell_rs}
+: OSMOSE RESOURCE_STREAMS ElecSell
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|ELEC       | out     |%ELEC_ref_POWER%     |
+|EnvCO2Em   | out     |%IndEmittedEE%       |
+
+```
+
+
+## Electricity Purchasing Unit {-}
+
+Electricity purchased by the grid from the process
+
+**Parameters of the Electricity Purchasing unit**
+
+```{rosmose ElecBuy_params}
+: OSMOSE UNIT_PARAM ElecBuy
+
+|cost1  |cost2              |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:------------------|:------|:------|:------|:------|:------|:------|
+|0      |%ELEC_BUY_COST%    |0      |0      |0      |0      |0      |100    |
+```
+
+**Electricity Purchasing Streams**
+
+*Resource Streams*
+
+Electricity purchased by the market from the process
+
+```{rosmose ElecBuy_rs}
+: OSMOSE RESOURCE_STREAMS ElecBuy
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|ELEC       | in      |%ELEC_ref_POWER%     |
+
+```
+
+## Natural Gas Selling Unit {-}
+
+**Parameters of the Natural Gas Selling unit**
+
+```{rosmose NatgasSell_params}
+: OSMOSE UNIT_PARAM NatgasSell
+
+|cost1  |cost2          |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:--------------|:------|:------|:------|:------|:------|:------|
+|0      |%NATGAS_COST%  |0      |0      |0      |0      |0      |1000   |
+```
+
+**Natural Gas Selling Streams**
+
+*Resource Streams*
+
+Natural gas sold from the market to the process. In addition to total CO~2~ emissions (direct and indirect) from the use of natural gas 
+
+```{rosmose NatgasSell_rs}
+: OSMOSE RESOURCE_STREAMS NatgasSell
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|NATGAS     |out      |%NATGAS_ref_LOAD%    |
+|EnvCO2Em   |out      |%TotalEmittedNG%     |
+```
+
+## Environment Unit {-}
+
+Environmental atmosphere receiving the fossil emissions TAXED.  
+This unit receives the CO~2~ emitted by the process via burning fuel (both direct and indirect) or using electricity (indirect). The resulting cost of this unit is then defined by the CO~2~ tax using a base value of 100 €/tonne of CO~2~ emitted (reference value for Europe, in Switzerland it is slightly higher at ~120- 140 €/tCO~2~)
+
+**Parameters of the Environment unit**
+
+```{rosmose EnvCO2tax_params}
+: OSMOSE UNIT_PARAM EnvCO2tax
+
+|cost1  |cost2          |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:--------------|:------|:------|:------|:------|:------|:------|
+|0      |%CO2_TAX_COST% |0      |0      |0      |0      |0      |1000   |
+```
+
+**Environment Streams**
+
+*Resource Streams*
+
+Total CO~2~ emitted from the process (input) and Overall CO~2~ tax (output)
+
+```{rosmose EnvCO2tax_rs}
+: OSMOSE RESOURCE_STREAMS EnvCO2tax
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|EnvCO2Em   |in       |%CO2taxed_ref_LOAD%  |
+  
+```
+
+## Water Selling Unit {-}
+Water from the market to the process
+
+**Parameters of the Water Selling unit**
+
+```{rosmose WaterSell_params}
+: OSMOSE UNIT_PARAM WaterSell
+
+|cost1  |cost2      |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:----------|:------|:------|:------|:------|:------|:------|
+|0      |%CW_COST%  |0      |0      |0      |0      |0      |10000  |
+```
+
+**Water Selling Streams**
+
+*Resource Streams*
+
+Water sold from the market to the process
+
+```{rosmose WaterSell_rs}
+: OSMOSE RESOURCE_STREAMS WaterSell
+
+|layer|direction|value          |
+|:----|:--------|:--------------|
+|WATER|out      |%CW_ref_LOAD%  |
+```
+
+## Water Purchasing Unit {-}
+
+Water purchased by the market from the process (in case of biodigestion there is a large wasetwater stream that is discharged)
+
+**Parameters of the Water Purchasing unit**
+
+```{rosmose WaterBuy_params}
+: OSMOSE UNIT_PARAM WaterBuy
+
+|cost1  |cost2         |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:-------------|:------|:------|:------|:------|:------|:------|
+|0      |%CW_COST_BUY% |0      |0      |0      |0      |0      |10000  |
+```
+
+**Water Purchasing Streams**
+
+*Resource Streams*
+
+Water purchased by the market from the process
+
+```{rosmose WaterBuy_rs}
+: OSMOSE RESOURCE_STREAMS WaterBuy
+
+|layer|direction|value          |
+|:----|:--------|:--------------|
+|WATER| in      |%CW_ref_LOAD%  |
+```
+
+## Freshmilk Selling Unit {-}
+
+**Parameters of the Freshmilk Selling unit**
+
+```{rosmose FreshmilkSell_params}
+: OSMOSE UNIT_PARAM FreshmilkSell
+
+|cost1  |cost2                |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:--------------------|:------|:------|:------|:------|:------|:------|
+|0      |%FRESHMILK_SELL_COST%|0      |0      |0      |0      |0      |1000   |
+```
+
+**Freshmilk Selling Streams**
+
+*Resource Streams*
+
+Fresh milk sold from the market to the process
+
+```{rosmose FreshmilkSell_rs}
+: OSMOSE RESOURCE_STREAMS FreshmilkSell
+
+|layer     |direction  |value                   |
+|:---------|:----------|:-----------------------|
+|FRESHMILK |out        |%FRESHMILK_ref_LOAD%    |
+```
+
+
+## Thickener Selling Unit {-}
+
+**Parameters of the Thickener Selling unit**
+
+```{rosmose ThickenerSell_params}
+: OSMOSE UNIT_PARAM ThickenerSell
+
+|cost1  |cost2                |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:--------------------|:------|:------|:------|:------|:------|:------|
+|0      |%THICKENER_SELL_COST%|0      |0      |0      |0      |0      |1000   |
+```
+
+**Thickener Selling Streams**
+
+*Resource Streams*
+
+Thickener sold from the market to the process
+
+```{rosmose ThickenerSell_rs}
+: OSMOSE RESOURCE_STREAMS ThickenerSell
+
+|layer     |direction  |value                   |
+|:---------|:----------|:-----------------------|
+|THICKENER |out        |%THICK_ref_LOAD%        |
+```
+
+
+## Salt Selling Unit {-}
+
+**Parameters of the Salt Selling unit**
+
+```{rosmose SaltSell_params}
+: OSMOSE UNIT_PARAM SaltSell
+
+|cost1  |cost2                |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:--------------------|:------|:------|:------|:------|:------|:------|
+|0      |%SALT_SELL_COST%     |0      |0      |0      |0      |0      |1000   |
+```
+
+**Salt Selling Streams**
+
+*Resource Streams*
+
+Salt sold from the market to the process
+
+```{rosmose SaltSell_rs}
+: OSMOSE RESOURCE_STREAMS SaltSell
+
+|layer     |direction  |value                   |
+|:---------|:----------|:-----------------------|
+|SALT      |out        |%SALT_ref_LOAD%         |
+```
+
+
+## Sugar Selling Unit {-}
+
+**Parameters of the Sugar Selling unit**
+
+```{rosmose SugarSell_params}
+: OSMOSE UNIT_PARAM SugarSell
+
+|cost1  |cost2                |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:--------------------|:------|:------|:------|:------|:------|:------|
+|0      |%SUGAR_SELL_COST%    |0      |0      |0      |0      |0      |1000   |
+```
+
+**Sugar Selling Streams**
+
+*Resource Streams*
+
+Sugar sold from the market to the process
+
+```{rosmose SugarSell_rs}
+: OSMOSE RESOURCE_STREAMS SugarSell
+
+|layer     |direction  |value                   |
+|:---------|:----------|:-----------------------|
+|SUGAR     |out        |%SUGAR_ref_LOAD%        |
+```
+
+
+## CO~2~ Selling Unit {-}
+
+**Parameters of the CO~2~ Selling unit**
+
+```{rosmose CO2Sell_params}
+: OSMOSE UNIT_PARAM CO2Sell
+
+|cost1  |cost2                |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:--------------------|:------|:------|:------|:------|:------|:------|
+|0      |%CO2_SELL_COST%      |0      |0      |0      |0      |0      |1000   |
+```
+
+**CO~2~ Selling Streams**
+
+*Resource Streams*
+
+CO~2~ sold from the market to the process
+
+```{rosmose CO2Sell_rs}
+: OSMOSE RESOURCE_STREAMS CO2Sell
+
+|layer     |direction  |value                   |
+|:---------|:----------|:-----------------------|
+|CO2       |out        |%CO2_ref_LOAD%          |
+```
+
+
+## Cream Purchasing Unit {-}
+
+**Parameters of the Cream Purchasing unit**
+
+```{rosmose CreamBuy_params}
+: OSMOSE UNIT_PARAM CreamBuy
+
+|cost1  |cost2                |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:--------------------|:------|:------|:------|:------|:------|:------|
+|0      |%CREAM_BUY_COST%     |0      |0      |0      |0      |0      |1000   |
+```
+
+**Cream Purchasing Streams**
+
+*Resource Streams*
+
+Cream is a product which is purchased by the market from the process
+
+```{rosmose CreamBuy_rs}
+: OSMOSE RESOURCE_STREAMS CreamBuy
+
+|layer     |direction  |value                   |
+|:---------|:----------|:-----------------------|
+|CREAM     |in         |%CREAM_ref_LOAD%        |
+```
+
+
+## Cheese Purchasing Unit {-}
+
+**Parameters of the Cheese Purchasing unit**
+
+```{rosmose CheeseBuy_params}
+: OSMOSE UNIT_PARAM CheeseBuy
+
+|cost1  |cost2                |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:--------------------|:------|:------|:------|:------|:------|:------|
+|0      |%CHEESE_BUY_COST%    |0      |0      |0      |0      |0      |1000   |
+```
+
+**Cheese Purchasing Streams**
+
+*Resource Streams*
+
+Cheese purchased by the market from the process
+
+```{rosmose CheeseBuy_rs}
+: OSMOSE RESOURCE_STREAMS CheeseBuy
+
+|layer     |direction  |value                   |
+|:---------|:----------|:-----------------------|
+|CHEESE    |in         |%CHEESE_ref_LOAD%       |
+```
+
+## Mesost Purchasing Unit {-}
+
+**Parameters of the Mesost Purchasing unit**
+
+```{rosmose MesostBuy_params}
+: OSMOSE UNIT_PARAM MesostBuy
+
+|cost1  |cost2                |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:--------------------|:------|:------|:------|:------|:------|:------|
+|0      |%MESOST_BUY_COST%    |0      |0      |0      |0      |0      |1000   |
+```
+
+**Mesost Purchasing Streams**
+
+*Resource Streams*
+
+Mesost purchased by the market from the process
+
+```{rosmose MesostBuy_rs}
+: OSMOSE RESOURCE_STREAMS MesostBuy
+
+|layer     |direction  |value                   |
+|:---------|:----------|:-----------------------|
+|MESOST    |in         |%MESOST_ref_LOAD%       |
+```
+
+## Soft Drink Purchasing Unit {-}
+
+**Parameters of the Soft Drink Purchasing unit**
+
+```{rosmose SoftDrinkBuy_params}
+: OSMOSE UNIT_PARAM SoftDrinkBuy
+
+|cost1  |cost2                |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:--------------------|:------|:------|:------|:------|:------|:------|
+|0      |%SOFTDRINK_BUY_COST%   |0      |0      |0      |0      |0      |1000   |
+```
+
+**Soft Drink Purchasing Streams**
+
+*Resource Streams*
+
+Soft Drink purchased by the market from the process
+
+```{rosmose SoftDrinkBuy_rs}
+: OSMOSE RESOURCE_STREAMS SoftDrinkBuy
+
+|layer     |direction  |value                   |
+|:---------|:----------|:-----------------------|
+|SOFTDRINK |in        |%SOFTDRINK_ref_LOAD%    |
+```
+
+## Biogas Purchasing Unit {-}
+
+**Parameters of the Biogas Purchasing unit**
+
+```{rosmose BiogasBuy_params}
+: OSMOSE UNIT_PARAM BiogasBuy
+
+|cost1  |cost2                |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:--------------------|:------|:------|:------|:------|:------|:------|
+|0      |%BIOGAS_BUY_COST%    |0      |0      |0      |0      |0      |1000   |
+```
+
+**Biogas Purchasing Streams**
+
+*Resource Streams*
+
+Biogas purchased by the market from the process
+
+```{rosmose BiogasBuy_rs}
+: OSMOSE RESOURCE_STREAMS BiogasBuy
+
+|layer     |direction  |value                   |
+|:---------|:----------|:-----------------------|
+|BIOGAS    |in         |%BIOGAS_ref_LOAD%       |
+```
+
+## Fertilizer Purchasing Unit {-}
+
+**Parameters of the Fertilizer Purchasing unit**
+
+```{rosmose FertilizerBuy_params}
+: OSMOSE UNIT_PARAM FertilizerBuy
+
+|cost1  |cost2                |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:--------------------|:------|:------|:------|:------|:------|:------|
+|0      |%FERTZ_BUY_COST%     |0      |0      |0      |0      |0      |1000   |
+```
+
+**Fertilizer Purchasing Streams**
+
+*Resource Streams*
+
+Fertilizer purchased by the market from the process
+
+```{rosmose FertilizerBuy_rs}
+: OSMOSE RESOURCE_STREAMS FertilizerBuy
+
+|layer     |direction  |value                   |
+|:---------|:----------|:-----------------------|
+|FERTZ     |in         |%FERTZ_ref_LOAD%        |
+```
+
+
+## Visualization of Market {-}

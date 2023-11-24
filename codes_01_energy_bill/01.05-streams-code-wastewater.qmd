@@ -1,0 +1,78 @@
+```{r}
+path <- file.path('../venv/bin/python3.10')
+library(reticulate)
+use_python(path)
+```
+
+
+# Mass and Energy Balance Calculations
+
+## Wastewater treatment section
+
+
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+
+# Wastewater streams being treated in the plant include M_e23 from evaporation section and M_c10 from cheese production section
+
+M_dw1 = M_e23 + M_c10
+DM_dw1 = (DM_e23*M_e23 + DM_c10*M_c10)/M_dw1
+T_dw1 = 25+273.15
+P_dw1 = 101325
+dw1 = mixture (frac_water=1-DM_dw1, frac_fat=DM_dw1, T= T_dw1, P=P_dw1)
+
+
+# assuming 95% filter efficiency and 75% moisture content of sludge 
+
+DM_dw3 = 0.25
+M_dw3 = (0.95*M_dw1*DM_dw1)/DM_dw3
+T_dw3 = 25+273.15
+P_dw3 = 101325
+dw3 = mixture (frac_water=1-DM_dw3, frac_fat=DM_dw3, T= T_dw3, P=P_dw3)
+
+
+
+M_dw2 = M_dw1 - M_dw3
+DM_dw2 = (0.05*M_dw1*DM_dw1)/M_dw2
+T_dw2 = 25+273.15
+P_dw2 = 101325
+dw2 = mixture (frac_water=1-DM_dw2, frac_fat=DM_dw2, T= T_dw2, P=P_dw2)
+
+print (M_dw1, DM_dw1)
+print (M_dw2, DM_dw2)
+print (M_dw3, DM_dw3)
+
+
+
+```
+
+```{python, eval=F}
+import json
+filename = 'results/scenario1.json'
+entry = {'dw1': dw1,'dw2': dw2,'dw3': dw3}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/streams.json'
+entry = {'T_dw1': T_dw1,'T_dw2': T_dw2,'T_dw3': T_dw3,'P_dw1': P_dw1,'P_dw2': P_dw2,'P_dw3': P_dw3, 'M_dw1': M_dw1,'M_dw2': M_dw2,'M_dw3': M_dw3, 'DM_dw1': DM_dw1,'DM_dw2': DM_dw2,'DM_dw3': DM_dw3}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```

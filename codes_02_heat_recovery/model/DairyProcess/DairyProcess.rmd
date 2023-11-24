@@ -1,0 +1,458 @@
+---
+title: "Dairy Process"
+output: html_document
+venv: ../venv
+---
+
+# Dairy Process {-}
+
+```{rosmose}
+! OSMOSE ET dairyprocess
+```
+
+**Dairy Process ET Layers**
+
+```{rosmose}
+: OSMOSE LAYERS dairyprocess
+
+|Layer      |Display name   |shortname  |Unit       |Color  |
+|:----------|:--------------|:----------|:----------|:------|
+|NATGAS     |Gas            |ng         |kW         |green  |
+|ELEC       |Electricity    |elec       |kW         |yellow |
+|WATER      |Water          |water      |kg/h       |blue   |
+|WSTWATER   |Waste Water    |wst_water  |kg/h       |blue   |
+|BRINE      |Brine          |brine      |kg/h       |blue   |
+|SALT       |Salt           |salt       |kg/h       |grey   |
+|SUGAR      |Sugar          |sugar      |kg/h       |grey   |
+|FRESHMILK  |Fresh milk     |f_milk     |kg/h       |white  |
+|MILK       |Milk           |milk       |kg/h       |white  |
+|CONCMILK   |Conc milk      |c_milk     |kg/h       |white  |
+|THICKENER  |Thickener      |thick      |kg/h       |orange |
+|CREAM      |Cream          |cream      |kg/h       |white  |
+|CHEESE     |Cheese         |cheese     |kg/h       |white  |
+|WHEY       |Whey           |whey       |kg/h       |orange |
+|MESOST     |Mesost         |mesost     |kg/h       |white  |
+|SLUDGE     |Sludge         |sludge     |kg/h       |brown  |
+|CO2        |CO2            |co2        |kg/h       |red    |
+|SOFTDRINK  |Soft drink     |SD         |kg/h       |white  |
+|BIOGAS     |Biogas         |biogas     |kg/h       |green  |
+|FERTZ      |Fertilizer     |fertlizr   |kg/h       |green  |
+```
+
+## Dairy Process Units {-}
+
+The dairy process contains the following units
+
+```{rosmose}
+: OSMOSE UNIT dairyprocess
+
+|unit name  |type   |
+|:----------|:------|
+|past       |Process|
+|evap       |Process|
+|cheese     |Process|
+|mesost     |Process|
+|cip        |Process|
+|wstwatr    |Process|
+|disposal   |Process|
+# |softdrink  |Process|
+# |digest     |Process|
+
+```
+
+
+## Pasteurization Unit {-}
+
+
+```{rosmose}
+: OSMOSE UNIT_PARAM past
+
+|cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax|
+|:----|:----|:----|:----|:---|:---|:---|:---|
+|0    |0    |0    |0    |0   |0   |1   |1   |
+```
+
+**Pasteurization Streams**
+
+Mass streams
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS past
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|FRESHMILK  | in      |28800                |
+|THICKENER  | in      |252                  |
+|MILK       | out     |27072                |
+|CREAM      | out     |1980                 |
+
+```
+
+
+Heat Streams
+
+```{rosmose}
+: OSMOSE HEAT_STREAMS past
+
+|name       |Tin |Tout|Hin    |Hout    |DT min/2 |alpha|
+|:----------|:---|:---|:------|:-------|:--------|:----|
+|Fresh_Milk |6	 |4   |62.94  |0       | 2.5     |1    |
+|Mixure_out |4   |60  |0      |1754.65 |	1      |1    |
+|Past_c     |65  |6   |1754.65|0       |	1      |1    |
+|Milk_0     |60  |70  |0      |296.96  |	2.5    |1    |
+|Past_b     |75  |65  |296.96 |0       |	2.5    |1    |
+|Past_a     |70  |75  |0      |148.66  |	2.5    |1    |
+|Past_d     |6   |4   |59.57  |0       |	2.5    |1    |
+|cream_0    |60  |70  |0      |16.84   |	2.5    |1    |
+|thickener  |4   |62  |0      |13.2    |	2.5    |1    |
+|crpast_a   |70  |62  |13.2   |0       |	2.5    |1    |
+|crpast_x   |62  |75  |0      |24.52   |	2.5    |1    |
+|crpast_b   |75  |66.2|16.84  |0       |	2.5    |1    |
+|crpast_c   |66.2|4   |118.51 |0       |	2.5    |1    |
+
+
+```
+
+
+
+## Evaporation Unit {-}
+
+```{rosmose}
+: OSMOSE UNIT_PARAM evap
+
+|cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax|
+|:----|:----|:----|:----|:---|:---|:---|:---|
+|0    |0    |0    |0    |0   |0   |1   |1   |
+```
+
+**Evaporation Unit Streams**
+
+Resource Streams
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS evap
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|MILK       | in      |27072                |
+|CONCMILK   | out     |5083.2               |
+|WSTWATER   | out     |3600                 |
+|WHEY       | out     |5472                 |
+
+```
+
+Heat Streams
+
+```{rosmose}
+: OSMOSE HEAT_STREAMS evap
+
+|name       |Tin|Tout|Hin     |Hout    |DT min/2|alpha|
+|:----------|:--|:---|:-------|:-------|:-------|:----|
+|e1         |4  |8.5 |0       |87.81   |2.5     |1    |
+|e11        |60 |40  |87.81   |0       |2.5     |1    |
+|e2         |8.5|55  |0       |903.75  |2.5     |1    |
+|e16        |60 |60  |903.75  |0       |2.5     |1    |
+|e3         |55 |60  |0       |97.27   |2.5     |1    |
+|e20        |65 |65  |97.27   |0       |2.5     |1    |
+|e4         |60 |65  |0       |97.33   |2.5     |1    |
+|e19        |70 |70  |97.33   |0       |2.5     |1    |
+|e12        |40 |4   |159.35  |0       |2.5     |1    |
+|e6a        |65 |70  |0       |97.37   |2.5     |1    |
+|e6b        |70 |70  |0       |3098.74 |2.5     |1    |
+|e17        |70 |70  |3002.24 |0       |2.5     |1    |
+|e7         |70 |65  |77.57   |0       |2.5     |1    |
+|e8         |65 |65  |0       |3002.24 |2.5     |1    |
+|e18a       |65 |65  |2311.20 |0       |2.5     |1    |
+|e9         |65 |60  |50.43   |0       |2.5     |1    |
+|e10        |60 |60  |0       |2311.20 |2.5     |1    |
+|e16b       |60 |60  |1407    |0       |2.5     |1    |
+|e16c       |60 |25  |144     |0       |2.5     |1    |
+|e15a       |65 |25  |215     |0       |2.5     |1    |
+|e14a       |70 |25  |251     |0       |2.5     |1    |
+|e18b       |65 |65  |700     |0       |2.5     |1    |
+
+```
+
+## Cheese Unit {-}
+
+
+```{rosmose}
+: OSMOSE UNIT_PARAM cheese
+
+|cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax|
+|:----|:----|:----|:----|:---|:---|:---|:---|
+|0    |0    |0    |0    |0   |0   |1   |1   |
+```
+
+**Cheese Streams**
+
+Mass Streams
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS cheese
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|CONCMILK   | in      |5083.2               |
+|WATER      | in      |1066.2               |
+|SALT       | in      |50                   |
+|CHEESE     | out     |2033.3               |
+|WHEY       | out     |3150                 |
+|BRINE      | out     |1016.6               |
+
+```
+
+Heat Streams
+
+```{rosmose}
+: OSMOSE HEAT_STREAMS cheese
+
+|name   |Tin|Tout|Hin       |Hout    |DT min/2|alpha|
+|:------|:--|:---|:---------|:-------|:-------|:----|
+|c1     |4  |32  |0         |123.94  |2.5     |1    |
+|c2     |32 |56  |0         |106.32  |2.5     |1    |
+|c5     |56 |16  |59.55     |0       |2.5     |1    |
+|c6     |16 |13  |6.42      |0       |2.5     |1    |
+
+```
+
+## Mesost Unit {-}
+
+```{rosmose}
+: OSMOSE UNIT_PARAM mesost
+
+|cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax|
+|:----|:----|:----|:----|:---|:---|:---|:---|
+|0    |0    |0    |0    |0   |0   |1   |1   |
+```
+
+**Mesost Streams**
+
+Mass Streams
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS mesost
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|WHEY       | in      |8622                 |
+|CREAM      | in      |223.6                |
+|MESOST     | out     |7452.4               |
+|WATER      | out     |1393.2               |
+
+```
+
+
+Heat Streams
+
+```{rosmose}
+: OSMOSE HEAT_STREAMS mesost
+
+|name   |Tin |Tout|Hin       |Hout    |DT min/2|alpha|
+|:------|:-- |:---|:---------|:-------|:-------|:----|
+|mt1    |23  |100 |0         |700.42  |2.5     |1    |
+|mt2    |100 |100 |0         |930.12  |2.5     |1    |
+|mt4    |100 |97.3|19.23     |0       |2.5     |1    |
+|mt5    |8   |97.3|0         |19.23   |2.5     |1    |
+|mt6    |97.3|87.3|76.52     |0       |2.5     |1    |
+|mt7    |87.3|8   |602.27    |0       |2.5     |1    |
+|mt3    |100 |100 |930.12    |0       |2.5     |1    |
+|mt3b   |100 |25  |122.8     |0       |2.5     |1    |
+
+```
+
+
+## Cleaning-in-place Unit {-}
+
+
+```{rosmose}
+: OSMOSE UNIT_PARAM cip
+
+|cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax|
+|:----|:----|:----|:----|:---|:---|:---|:---|
+|0    |0    |0    |0    |0   |0   |1   |1   |
+```
+
+**Cleaning-in-place Streams**
+
+Mass Streams
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS cip
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|WATER      | in      |4320                 |
+|WATER      | out     |4320                 |
+
+```
+
+Heat Streams
+
+
+```{rosmose}
+: OSMOSE HEAT_STREAMS cip
+
+|name   |Tin|Tout|Hin       |Hout    |DT min/2|alpha|
+|:------|:--|:---|:---------|:-------|:-------|:----|
+|CIP1   |25 |60  |0         |176     |2.5     |1    |
+|CIP5   |75 |60  |176       |0       |2.5     |1    |
+|CIP2   |60 |80  |0         |335.2   |2.5     |1    |
+|CIP6   |75 |30  |225.9     |0       |2.5     |1    |
+|CIP8   |25 |40  |0         |83.9    |2.5     |1    |
+|CIP13  |80 |75  |83.9      |0       |2.5     |1    |
+
+```
+
+## Wastewater Treatment Unit {-}
+
+```{rosmose}
+: OSMOSE UNIT_PARAM wstwatr
+
+|cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax|
+|:----|:----|:----|:----|:---|:---|:---|:---|
+|0    |0    |0    |0    |0   |0   |1   |1   |
+```
+
+**Wastewater Treatment Streams**
+
+Mass Streams
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS wstwatr
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|WSTWATER   | in      |3600                 |
+|BRINE      | in      |1016.6               |
+|WATER      | out     |4479.8               |
+|SLUDGE     | out     |136.8                |
+
+```
+
+
+## Waste Disposal Treatment Unit {-}
+
+```{rosmose}
+: OSMOSE UNIT_PARAM disposal
+
+|cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax|
+|:----|:----|:----|:----|:---|:---|:---|:---|
+|0    |0    |0    |0    |0   |0   |1   |1   |
+```
+
+**Waste Disposal Streams**
+
+Mass Streams
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS disposal
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|SLUDGE     | in      |136.8                |
+
+# in this case the water discharge will be taken by the market with a reduced cost taking into consideration additional treatment needed
+
+```
+
+
+
+<!-- ## Soft Drink Production Unit {-} -->
+
+<!-- ```{rosmose} -->
+<!-- : OSMOSE UNIT_PARAM softdrink -->
+
+<!-- |cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax| -->
+<!-- |:----|:----|:----|:----|:---|:---|:---|:---| -->
+<!-- |0    |0    |0    |0    |0   |0   |1   |1   | -->
+<!-- ``` -->
+
+<!-- **Soft Drink Production Streams** -->
+
+<!-- Mass Streams -->
+
+<!-- ```{rosmose} -->
+<!-- : OSMOSE RESOURCE_STREAMS softdrink -->
+
+<!-- |layer      |direction|value                | -->
+<!-- |:----------|:--------|:--------------------| -->
+<!-- |WATER      | in      |572.3                | -->
+<!-- |SUGAR      | in      |1837.3               | -->
+<!-- |CO2        | in      |37                   | -->
+<!-- |WHEY       | in      |8622                 | -->
+<!-- |SOFTDRINK  | out     |6024                 | -->
+<!-- |WATER      | out     |5180.04              | -->
+<!-- ``` -->
+
+<!-- Heat Streams -->
+
+<!-- ```{rosmose} -->
+<!-- : OSMOSE HEAT_STREAMS softdrink -->
+
+<!-- |name   |Tin  |Tout |Hin       |Hout      |DT min/2|alpha| -->
+<!-- |:------|:----|:----|:---------|:---------|:-------|:----| -->
+<!-- |R5a    |25   |100  |0         |687.5     |2.5     |1    | -->
+<!-- |R5b    |100  |100  |0         |3458      |2.5     |1    | -->
+<!-- |R6     |100  |100  |3458      |0         |2.5     |1    | -->
+<!-- |R6b    |100  |25   |453.3     |0         |2.5     |1    | -->
+<!-- |R7     |100  |50   |159.28    |0         |2.5     |1    | -->
+<!-- |R10    |50   |40   |8.64      |0         |2.5     |1    | -->
+<!-- |R11    |25   |40   |0         |6.68      |2.5     |1    | -->
+<!-- |R12    |25   |40   |0         |1.96      |2.5     |1    | -->
+<!-- |R13    |40   |4.25 |54.77     |0         |2.5     |1    | -->
+<!-- |R14    |4.25 |10   |0         |8.5       |2.5     |1    | -->
+<!-- |R24    |40   |10   |8.5       |0         |2.5     |1    | -->
+<!-- |R17    |50   |43.7 |13.97     |0         |2.5     |1    | -->
+<!-- |R18    |25   |43.7 |0         |4.58      |2.5     |1    | -->
+<!-- |R19    |25   |43.7 |0         |9.39      |2.5     |1    | -->
+<!-- |R20    |43.7 |3.24 |120.0     |0         |2.5     |1    | -->
+<!-- |R21    |3.24 |10   |0         |20.04     |2.5     |1    | -->
+<!-- |R24    |40   |10   |20.04     |0         |2.5     |1    | -->
+<!-- ``` -->
+
+
+<!-- ## Biodigester Unit {-} -->
+
+<!-- ```{rosmose} -->
+<!-- : OSMOSE UNIT_PARAM digest -->
+
+<!-- |cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax| -->
+<!-- |:----|:----|:----|:----|:---|:---|:---|:---| -->
+<!-- |0    |0    |0    |0    |0   |0   |1   |1   | -->
+<!-- ``` -->
+
+<!-- **Digester Streams** -->
+
+<!-- Mass Streams -->
+
+<!-- ```{rosmose} -->
+<!-- : OSMOSE RESOURCE_STREAMS digest -->
+
+<!-- |layer      |direction|value                | -->
+<!-- |:----------|:--------|:--------------------| -->
+<!-- |WHEY       | in      |8622                 | -->
+<!-- |SLUDGE     | in      |136.8                | -->
+<!-- |BIOGAS     | out     |340.6                | -->
+<!-- |FERTZ      | out     |1928.6               | -->
+<!-- |WATER      | out     |4753.8               | -->
+<!-- ``` -->
+
+<!-- Heat Streams -->
+
+<!-- ```{rosmose} -->
+<!-- : OSMOSE HEAT_STREAMS digest -->
+
+<!-- |name   |Tin  |Tout |Hin       |Hout      |DT min/2|alpha| -->
+<!-- |:------|:----|:----|:---------|:---------|:-------|:----| -->
+<!-- |d1     |20   |55   |0         |144.97    |2.5     |1    | -->
+<!-- |d3     |55   |25   |103.6     |0         |2.5     |1    | -->
+<!-- |d4     |55   |25   |166.4     |0         |2.5     |1    | -->
+<!-- |d5a    |55   |95   |0         |49.13     |2.5     |1    | -->
+<!-- |d5b    |55   |100  |0         |144.7     |2.5     |1    | -->
+<!-- |d5c    |100  |100  |0         |2300.43   |2.5     |1    | -->
+<!-- |d5d    |100  |115  |0         |31        |2.5     |1    | -->
+<!-- |d8a    |115  |100  |31        |0         |2.5     |1    | -->
+<!-- |d8b    |100  |100  |2300.43   |0         |2.5     |1    | -->
+<!-- |d8c    |100  |25   |320.63    |0         |2.5     |1    | -->
+<!-- ``` -->

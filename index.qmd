@@ -1,0 +1,33 @@
+---
+advisor: Prof. François Maréchal
+unitname:
+  faculty: School of Engineering
+  institute: Mechanical Engineering
+  laboratory: "Industrial Process and Energy Systems Engineering"
+venv: ./venv
+---
+
+
+```{r setup rosmose, warning = F, results = "hide", message=F, eval=T, echo=F}
+source("./rosmose-setup.R", local = knitr::knit_global())
+```
+
+# Preface {-}
+
+The goal of this example is to provide practical insights into the use of ROSMOSE as an open-sourse tool to be accessible by the scientific community and industrial partners. Once the utilization of ROSMOSE to solve the total sight integration and system optimization of the Dairy porcess is mastered it can be used for solving any industrial or urban energy syetem problem or a combination of the two. As ROSMOSE uses the OSMOSE platform developed by IPESE as the backend solver of the optimization problem, acess to the IPESE server for computing needs is to be requested from Prof. François Maréchal through contacting him directly at [francois.marechal@epfl.ch](mailto:francois.marechal@epfl.ch).
+
+
+```{r process-balance, echo=F, out.width='90%', fig.align='center', fig.cap='Process system integration principles'}
+#| label: fig-process-audit
+knitr::include_graphics('Figures/Process-balance.png')
+```
+
+
+A demonstration of this tool was also presented at the $36^{th}$ International Conference on Efficiency, Cost, Optimization, Simulation and Environmental Impact of Energy Systems, ECOS 2023 @dardorROSMOSEWebbasedOptimization2023.
+
+
+
+```{r ecos-2023, echo=F, out.width='90%', fig.align='center', fig.cap='ECOS 2023 demonstration'}
+#| label: fig-ecos2023
+knitr::include_graphics('Figures/ECOS2023ppt.png')
+```

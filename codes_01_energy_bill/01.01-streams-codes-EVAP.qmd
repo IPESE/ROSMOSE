@@ -1,0 +1,429 @@
+---
+title: "Template Project"
+author: "Michel lopez <michel.lopez@epfl.ch>"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+    html_document:
+        theme: simplex
+        toc_depth: 3
+        toc: true
+        toc_float: true
+        collapse: true
+        smooth_scroll: true
+        dev: svg
+        code_folding: hide
+        number_sections: true
+        mathjax: default
+    pdf_document:
+        template: ipese/template.tex
+        citation_package: natbib
+        keep_tex: yes
+        dev: pdf
+    always_allow_html: yes
+venv: "../venv"
+---
+
+```{r}
+path <- file.path('../venv/bin/python3.10')
+library(reticulate)
+use_python(path)
+```
+
+
+# Mass and Energy Balance Calculations
+
+## Evaporation section
+
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+#Processing and filter
+print ("Milk from pasteurisation section:", M_milk, DM_milk, T_milk, P_milk)
+M_e1 = 5.0 #kg/s
+M_e21 = M_milk - M_e1
+M_e23 = 1.0 #kg/s
+M_e22 = M_e21 - M_e23
+DM_e22 = 0.1 #assuming 10 wt% DM in Whey / Lactoserum stream
+DM_e23 = 0.01 #assuming 1% DM in wastewater stream 
+DM_e21 = (M_e22*DM_e22 + M_e23*DM_e23)/M_e21
+DM_e1 = (M_milk*DM_milk - M_e21*DM_e21)/M_e1
+DM_e13 = 0.5 #concentrated milk is 50% DM 
+T_e1 = 4+273.15
+P_e1 = 101325.0
+e1 = mixture (frac_water=1-DM_e1, frac_fat=DM_e1, T= T_e1, P=P_e1)
+#assume processing and filtration do not affect temperature and pressure
+T_e21 = T_e1
+P_e21 = P_e1
+T_e22 = T_e21
+P_e22 = P_e21
+T_e23 = T_e21
+P_e23 = P_e21
+e21 = mixture (frac_water=1-DM_e21, frac_fat=DM_e21, T= T_e21, P=P_e21)
+e22 = mixture (frac_water=1-DM_e22, frac_fat=DM_e22, T= T_e22, P=P_e22)
+e23 = mixture (frac_water=1-DM_e23, frac_fat=DM_e23, T= T_e23, P=P_e23)
+
+#P1 
+T_e2 = 8.5 + 273.15
+P_e2 = 101325.0
+M_e2 = M_e1 
+DM_e2 = DM_e1
+e2 = mixture (frac_water=1-DM_e2, frac_fat=DM_e2, T= T_e2, P=P_e2)
+Q_P1 = M_e2*e2["enthalpy"] - M_e1*e1["enthalpy"]
+print ("Heat needed in P1:", Q_P1, "W .")
+
+#P2
+T_e3 = 55 + 273.15
+P_e3 = 101325.0
+M_e3 = M_e2
+DM_e3 = DM_e2
+e3 = mixture (frac_water=1-DM_e3, frac_fat=DM_e3, T= T_e3, P=P_e3)
+Q_P2 = M_e3*e3["enthalpy"] - M_e2*e2["enthalpy"]
+print ("Heat needed in P2:", Q_P2, "W .")
+
+#P3 
+M_e4 = M_e3
+DM_e4 = DM_e3
+T_e4 = 60 + 273.15
+P_e4 = 101325.0
+e4 = mixture (frac_water=1-DM_e4, frac_fat=DM_e4, T= T_e4, P=P_e4)
+Q_P3 = M_e4*e4["enthalpy"] - M_e3*e3["enthalpy"]
+print ("Heat needed in P3:", Q_P3, "W .")
+
+#P4
+M_e5 = M_e4
+DM_e5 = DM_e4
+T_e5 = 65 + 273.15
+P_e5 = 101325.0
+e5 = mixture (frac_water=1-DM_e5, frac_fat=DM_e5, T= T_e5, P=P_e5)
+Q_P4 = M_e5*e5["enthalpy"] - M_e4*e4["enthalpy"]
+print ("Heat needed in P4:", Q_P4, "W .")
+
+```
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+#EVAP1
+T_e6 = T_e5
+P_e6 = 0.31*101325
+M_e6 = M_e5
+DM_e6 = DM_e5
+e6 = mixture (frac_water=1-DM_e6, frac_fat=DM_e6, T= T_e6, P=P_e6)
+T_e14 = 70.2+273.15
+P_e14 = 0.31*101325
+M_e14 = 1.328 #kg/s
+DM_e14 = 0 #pure water vapor no dry matter evaporates
+e14 = State(pair='TP',fluid='Water',temperature=T_e14,pressure=P_e14)
+e14.StateCalc()
+print(e14.__dict__)
+print("enthaply saturated vapor 0.31 bar: ", e14.enthalpy)
+T_e7 = 70+273.15
+P_e7 = 0.31*101325
+M_e7 = M_e6-M_e14
+DM_e7 = (M_e6*DM_e6)/M_e7
+e7= State(pair='TP',fluid='Water',temperature=T_e7,pressure=P_e7)
+e7.StateCalc()
+print(e7.__dict__)
+print("enthaply saturated liquid 0.31 bar: ", e7.enthalpy)
+h_evap1 = e14.enthalpy - e7.enthalpy 
+print("Lv water 0.31 bar: ", h_evap1)
+Q_EVAP1 = M_e14*h_evap1
+print ("heat needed in EVAP1: ", Q_EVAP1, "W.")
+M_steam_EVAP1 = Q_EVAP1/hlv
+```
+
+
+We calculate the heat needed to evaporate 1.28 kg/s of water in the evap 2 (from e8 to e15 at 65°C and 0.25 bar)
+```{python use-coolprop3, message=T, echo=T}
+from pyxosmose.state import State
+M_e8 = M_e7
+DM_e8 = DM_e7 
+T_e8 = 65.1+273.15
+P_e8 = 0.25*101325
+e8 = State(pair='TP',fluid='Water',temperature=T_e8,pressure=P_e8)
+e8.StateCalc()
+print(e8.__dict__)
+
+M_e15 = 1.28 #kg/s
+DM_e15 = 0
+T_e15 = 65.3+273.15
+P_e15 = 0.25*101325
+
+e15 = State(pair='TP',fluid='Water',temperature=T_e15,pressure=P_e15)
+e15.StateCalc()
+print(e15.__dict__)
+
+Q_EVAP2 = M_e15 * (e15.enthalpy - e8.enthalpy)
+
+h_evap2 = e15.enthalpy - e8.enthalpy
+
+print("Heat needed in EVAP2: ", Q_EVAP2, "W.")
+
+```
+
+Finally, we find how much steam is needed in e14 to fulfill the heat requirements of P4 and Evap 2 only using the latent heat. 
+
+```{python use-coolprop4, message=T, echo=T}
+from pyxosmose.state import State
+
+total_heat_needed = Q_EVAP2 + Q_P4
+print("total heat needed P4 + evap 2: ", total_heat_needed/1000, "kW")
+
+Mass_e14 = total_heat_needed / h_evap1
+T_e17 = T_e14
+P_e17 = P_e14
+e17 = State(pair='TP',fluid='Water',temperature=T_e17,pressure=P_e17)
+e17.StateCalc()
+print(e17.__dict__)
+e17l = e7
+M_e17 = Q_EVAP2 / (e17.enthalpy - e17l.enthalpy)
+T_e19 = T_e14
+P_e19 = P_e14
+e19 = State(pair='TP',fluid='Water',temperature=T_e19,pressure=P_e19)
+e19.StateCalc()
+print(e19.__dict__)
+e19l = e7
+M_e19 = Q_P4 / (e19.enthalpy - e19l.enthalpy)
+Mass_e14check = M_e19 + M_e17
+
+```
+We calculate the heat needed to evaporate 1 kg/s of water in the evap 3 (from e10 to e16 at 60°C and 0.20 bar)
+
+```{python use-coolprop3, message=T, echo=T}
+from pyxosmose.state import State
+M_e9 = M_e8 - M_e15
+DM_e9 = (M_e8*DM_e8)/M_e9
+T_e9 = 65.1+273.15
+P_e9 = 0.25*101325
+e9 = State(pair='TP',fluid='Water',temperature=T_e9,pressure=P_e9)
+e9.StateCalc()
+print(e9.__dict__)
+M_e10 = M_e9
+DM_e10 = DM_e9
+T_e10 = 60 +273.15
+P_e10 = 0.2*101325
+
+e10 = State(pair='TP',fluid='Water',temperature=T_e10,pressure=P_e10)
+e10.StateCalc()
+print(e10.__dict__)
+
+M_e16 = 0.98 #kg/s
+DM_e16 = 0
+T_e16 = 60.4+273.15
+P_e16 = 0.20*101325
+
+e16 = State(pair='TP',fluid='Water',temperature=T_e16,pressure=P_e16)
+e16.StateCalc()
+print(e16.__dict__)
+
+Q_EVAP3 = M_e16 * (e16.enthalpy - e10.enthalpy)
+h_evap3 = e16.enthalpy - e10.enthalpy
+
+print("Heat needed in EVAP3: ", Q_EVAP3, "W.")
+
+
+
+```
+
+Finally, we find how much steam is needed in e15 to fulfill the heat requirements of P3 and Evap 3 only using the latent heat. 
+
+```{python use-coolprop4, message=T, echo=T}
+from pyxosmose.state import State
+
+total_heat_needed_2 = Q_EVAP3 + Q_P3
+print("total heat needed P3 + evap 3: ", total_heat_needed_2/1000, "kW")
+Mass_e15 = total_heat_needed_2 / h_evap2
+T_e18 = 65+273.15
+P_e18 = P_e15
+e18 = State(pair='TP',fluid='Water',temperature=T_e18,pressure=P_e18)
+e18.StateCalc()
+print(e18.__dict__)
+M_e18 = 1.24 #excess steam in system leave EVAP3 as saturated liquid vapor mixture
+T_e20 = T_e15
+P_e20 = P_e15
+e20 = State(pair='TP',fluid='Water',temperature=T_e20,pressure=P_e20)
+e20.StateCalc()
+print(e20.__dict__)
+e20l = e9
+M_e20 = Q_P3 / (e20.enthalpy - e20l.enthalpy)
+Q_P3B = M_e20 * (e20.enthalpy - e20l.enthalpy)
+
+Mass_e15check = M_e20 + M_e18
+
+```
+Check that e18 can leave EVAP3 as saturated liquid vapor mixture while vaporizing only 1 kg/s of water from the milk stream. This stream must be equilibriated wih the environment by first recovering the latent heat then cooling down to 25°C as done in the ROSMOSE heat streams section.
+```{python use-coolprop4, message=T, echo=T}
+from pyxosmose.state import State
+
+Q_e18lv = M_e18 * h_evap2 *0.811
+print (Q_EVAP3 - Q_e18lv)
+
+```
+
+
+```{python use-coolprop4, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+M_e11 = M_e10 - M_e16
+DM_e11 = (DM_e10 *M_e10)/M_e11
+T_e16l = 60.1+273.15
+P_e16l = 0.20*101325
+
+e16l = State(pair='TP',fluid='Water',temperature=T_e16l,pressure=P_e16l)
+e16l.StateCalc()
+print(e16l.__dict__)
+
+h_e16 = e16.enthalpy - e16l.enthalpy
+print (h_e16)
+Q_e16 = M_e16*h_e16
+vap_frac_e16l = 1- (Q_P2/Q_e16)
+print (h_e16, Q_e16)
+print("the heat needed for preheater 2 is:", Q_P2/1000, "kW" , "while extra heat is available in stream e16 which contains:", Q_e16/1000, "kW. The stream will then leave P2 as a saturated liquid vapor mixture with a vapor fraction of " , vap_frac_e16l, ". This stream must be equilibriated wih the environment by first recovering the latent heat then cooling down to 25°C as done in the ROSMOSE heat streams section.")
+Q_P2B = (1-vap_frac_e16l) * Q_e16
+```
+
+```{python use-coolprop4, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+T_e11 = 60.1 +273.15
+P_e11 = 0.25*101325
+e11 = mixture (frac_water=1-DM_e11, frac_fat=DM_e11, T= T_e11, P=P_e11)
+
+M_e12 = M_e11
+DM_e12 = DM_e11
+
+h_P1 = Q_P1 /M_e11
+h_e12 = e11["enthalpy"]- h_P1
+P_e12 = P_e11
+T_e12 = 40 +273.15
+e12 = mixture (frac_water=1-DM_e12, frac_fat=DM_e12, T= T_e12, P=P_e12)
+Q_P1B = M_e11*(e12["enthalpy"] - e11["enthalpy"])
+print (Q_P1B+Q_P1)
+
+
+```
+
+```{python use-coolprop4, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+#P5 
+M_e13 = M_e12
+DM_e13 = DM_e12
+T_e13 = 4+273.15
+P_e13 = 0.2*101325
+e13 = mixture (frac_water=1-DM_e13, frac_fat=DM_e13, T= T_e13, P=P_e13)
+Q_P5 = M_e13*e13["enthalpy"] - M_e12*e12["enthalpy"]
+print ("Heat removed in P5:", Q_P5, "W .")
+M_gw_P5 = -Q_P5 / (Cp_gw * (T_gwout - T_gwin))
+
+```
+
+To update a JSON object in a file, import the json library, read the file with json.load(file), add the new entry to the list or dictionary data structure data, and write the updated JSON object with json.dump(data, file).
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+
+#Preheating before evaporation in EVAP1
+
+heat_e6 = M_e6*e6["cpmass"]*(70-65)
+print ("heat needed to heat up e6 to 70°C: ", heat_e6/1000, "kW.")
+
+#heat loss in Valve-1
+
+valve_e7 = M_e7*(e8.cpmass*65-e7.cpmass*70)
+print ("heat lost in vavle as e7 cools down from 70 to 65°C: ", valve_e7/1000, "kW.")
+
+#heat loss in Valve-2
+
+valve_e9 = M_e9*(e10.cpmass*60 - e9.cpmass*65)
+print ("heat lost in vavle as e9 cools down from 65 to 60°C: ", valve_e9/1000, "kW.")
+
+#e19l leaving P4 can be cooled down to room temperature
+
+heat_e19l = M_e19*e19l.cpmass*(70-25)
+
+print("the heat recoverable from cooling down the condensed liquid used in P4 is:", heat_e19l/1000, "kW.")
+
+#e17l leaving EVAP2 can be cooled down to room temperature
+
+heat_e17l = M_e17*e17l.cpmass*(70-25)
+
+print("the heat recoverable from cooling down the condensed liquid used in EVAP2 is:", heat_e17l/1000, "kW.")
+
+
+
+```
+
+```{python, eval=F}
+import json
+filename = 'results/scenario1.json'
+entry = {'e1': e1, 'e2': e2, 'e3': e3, 'e4': e4, 'e5': e5, 'e6': e6, 'e7': e7.__dict__, 'e8': e8.__dict__, 'e9': e9.__dict__, 'e10': e10.__dict__, 'e11': e11, 'e12': e12, 'e13': e13, 'e14': e14.__dict__, 'e15': e15.__dict__, 'e16': e16.__dict__, 'e16l': e16l.__dict__, 'e17': e17.__dict__, 'e17l': e17l.__dict__,'e18': e18.__dict__, 'e19': e19.__dict__, 'e19l': e19l.__dict__,'e20': e20.__dict__, 'e20l': e20l.__dict__, 'e21': e21, 'e22': e22, 'e23': e23}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/energy_bill.json'
+entry = {'Q_P1': Q_P1, 'Q_P2': Q_P2, 'Q_P3': Q_P3, 'Q_P4': Q_P4, 'Q_P5': Q_P5, 'Q_EVAP1': Q_EVAP1, 'Q_EVAP2': Q_EVAP2, 'Q_EVAP3': Q_EVAP3 , 'Q_e18lv': Q_e18lv, 'Q_e16': Q_e16}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/utility.json'
+entry = {'M_steam_EVAP1': M_steam_EVAP1, 'M_gw_P5': M_gw_P5}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+
+
+```{python, eval=F}
+import json
+filename = 'results/streams.json'
+entry = {"T_e1": T_e1 , "T_e2" : T_e2 ,"T_e3": T_e3, "T_e4": T_e4, "T_e5": T_e5, "T_e6": T_e6, "T_e7": T_e7, "T_e8": T_e8, "T_e9": T_e9, "T_e10": T_e10, "T_e11": T_e11, "T_e12": T_e12, "T_e13": T_e13, "T_e14": T_e14, "T_e15": T_e15, "T_e16": T_e16, "T_e17": T_e17, "T_e18": T_e18, "T_e19" : T_e19, "T_e20": T_e20, "T_e21": T_e21, "T_e22": T_e22, "T_e23": T_e23, "P_e1": P_e1 , "P_e2" : P_e2 ,"P_e3": P_e3, "P_e4": P_e4, "P_e5": P_e5, "P_e6": P_e6, "P_e7": P_e7, "P_e8": P_e8, "P_e9": P_e9, "P_e10": P_e10, "P_e11": P_e11, "P_e12": P_e12, "P_e13": P_e13, "P_e14": P_e14, "P_e15": P_e15, "P_e16": P_e16, "P_e17": P_e17, "P_e18": P_e18, "P_e19" : P_e19, "P_e20": P_e20, "P_e21": P_e21, "P_e22": P_e22, "P_e23": P_e23, "M_e1": M_e1 , "M_e2" : M_e2 ,"M_e3": M_e3, "M_e4": M_e4, "M_e5": M_e5, "M_e6": M_e6, "M_e7": M_e7, "M_e8": M_e8, "M_e9": M_e9, "M_e10": M_e10, "M_e11": M_e11, "M_e12": M_e12, "M_e13": M_e13, "M_e14": M_e14, "M_e15": M_e15, "M_e16": M_e16, "M_e17": M_e17, "M_e18": M_e18, "M_e19" : M_e19, "M_e20": M_e20, "M_e21": M_e21, "M_e22": M_e22, "M_e23": M_e23, "vap_frac_e16l":vap_frac_e16l}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```

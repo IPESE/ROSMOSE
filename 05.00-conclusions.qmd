@@ -1,0 +1,8 @@
+# Conclusions {-}
+
+The use of ROSMOSE to assess the energy efficiency of systems and compare integration alternatives was demonstrated through the case study of a dairy production site. Combining a high-level reporting system such as Quarto with the capabilities of the OSMOSE Lua platform through integrated dynamic environments including Rstudio and visual studio code. With this working example and tutorial codes any interested member of the scientific community or industrial partners should be able to use ROSMOSE tools for their processes. 
+
+# References {-}
+
+::: {#refs}
+:::

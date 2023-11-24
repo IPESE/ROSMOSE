@@ -1,0 +1,105 @@
+# Cogeneration {-}
+
+```{rosmose}
+! OSMOSE ET cogen
+```
+
+```{rosmose}
+eta_el = 0.4 #electrical efficiency
+eta_th_fg = 0.22  #thermal efficiency - high grade heat if form of flue gases (typically available @ 450 can be cooled down to 150°C)
+eta_th_cw = 0.25  #thermal efficiency - low grade waste heat in form of cooling water (@ 90 - 50°C)
+Cogen_natGas_LOAD = 6000 [kW] # Reference cogeneration unit load 
+fg_Tin = 450 [C] #high-grade waste heat (Flue_gas) available temperature 
+fg_Tout = 150 [C] #high-grade waste heat (Flue_gas) exit temperature 
+cw_Tin = 90 [C] #low-grade waste heat (cooling_water) available temperature 
+cw_Tout = 40 [C] #low-grade waste heat (cooling_water) exit temperature 
+n = 40.0 [yr] #lifetime
+i = 0.06 [-] #interest rate
+CEPCI_2020 = 596.2 [-] # actual CEPCI
+CEPCI_2008 = 575.4 [-] # CEPCI 2008
+```
+
+```{rosmose} 
+Cogen_elec = %eta_el%*%Cogen_natGas_LOAD% #Power generation assuming ~40% efficiency
+Q_cogen_fg = %eta_th_fg% * %Cogen_natGas_LOAD%  #high grade heat generated from flue gases assuming 22%
+Q_cogen_cw = %eta_th_cw% * %Cogen_natGas_LOAD%  #high grade heat generated from flue gases assuming 25%
+Annuity = (%i%*(1+%i%)**%n%)/((1+%i%)**%n%-1) [-] #annualization factor
+Cinv2_cogen = 1200*%Cogen_elec%*(%CEPCI_2020%/%CEPCI_2008%)*%Annuity% [Euro/y] #1200 Euro/kW natural gas load of the cogeneration unit
+```
+
+
+**Layers of the Cogeneration ET**
+
+```{rosmose} 
+: OSMOSE LAYERS cogen
+
+|Layer      |Display name   |shortname  |Unit       |Color  |
+|:----------|:--------------|:----------|:----------|:------|
+|NATGAS     |Gas            |ng         |kW         |green  |
+|ELEC       |Electricity    |elec       |kW         |yellow |
+  
+```
+
+**Cogeneration unit of the Cogeneration ET**
+
+```{rosmose} 
+: OSMOSE UNIT cogen
+
+|unit name  |type     |
+|:----------|:--------|
+|cogen      |Utility  |
+```
+
+**Parameters of the Cogeneration unit**
+
+```{rosmose}
+: OSMOSE UNIT_PARAM cogen
+
+|cost1  |cost2  |cinv1  |cinv2         |imp1   |imp2   |fmin   |fmax   |
+|:------|:------|:------|:-------------|:------|:------|:------|:------|
+|0      |0      |0      |%Cinv2_cogen% |0      |0      |0      |5      |
+```
+
+**Cogeneration Streams**
+
+*Resource Streams*
+Defining the resource streams, in this case natural gas to, and electricity from, the cogeneration unit
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS cogen
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|ELEC       | out     |%Cogen_elec%         |
+|NATGAS     | in      |%Cogen_natGas_LOAD%  |
+```
+
+*Heat Streams*
+
+```{rosmose}
+: OSMOSE HEAT_STREAMS cogen
+
+|name           |Tin        |Tout       |Hin           |Hout       |DT min/2   |alpha|
+|:--------------|:----------|:----------|:-------------|:----------|:----------|:----|
+|fg             |%fg_Tin%   |%fg_Tout%  |%Q_cogen_fg%  |0          |2.5        |1    |
+|cw             |%cw_Tin%   |%cw_Tout%  |%Q_cogen_cw%  |0          |2.5        |1    |
+```
+
+## Visualization of Cogeneration Unit {-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

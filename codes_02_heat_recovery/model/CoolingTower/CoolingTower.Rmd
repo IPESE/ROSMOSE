@@ -1,0 +1,91 @@
+# Cooling Tower {-}
+
+```{rosmose coolingtower}
+! OSMOSE ET coolingtower
+```
+
+
+```{rosmose} 
+Cool_Tin = 15 [C] #Cooling tower inlet temperature 
+Cool_Tout = 30 [C] #Cooling tower outlet temperature 
+Cool_Qmax = 1000 [kW] #Cooling tower reference heat load
+Cool_Elec = 0.021 [kW/kW] #Cooling Tower electricity input kWel/kWth
+dtmin_liq = 5 [C] #delta Tmin of the cooling water (w/ liquid streams)
+deltaH = 62.8 [kJ/kg] #Enthalpy change for cooling water @1 bar between 15 to 30°C
+Twetbulb = 12.17 [C]
+n = 40.0 [yr] #lifetime of a cooling tower
+i = 0.06 [-] #interest rate
+CEPCI_2020 = 596.2 [-] # actual CEPCI
+CEPCI_2008 = 575.4 [-] # CEPCI 2008
+```
+
+
+```{rosmose} 
+E_ref_CT = %Cool_Elec%*%Cool_Qmax% [kW] # Electricity consumption 
+deltaT_CT = %Cool_Tout%-%Cool_Tin% [C]
+approach = %Cool_Tin%-%Twetbulb% [C]
+water_flow = %Cool_Qmax%/%deltaH%*3600 [kg/h] #water flow rate
+watermu_CT = 0.000851*%water_flow%*(%Cool_Tout%-%Cool_Tin%) [kg/h] #makeup water in the CT system
+Annuity = (%i%*(1+%i%)**%n%)/((1+%i%)**%n%-1) [-] #annualization factor
+CTCost = 746.49/0.066*((%water_flow%/1000)**0.79)*(%deltaT_CT%**0.57)*(%approach%**-0.9924)*(0.022*%Twetbulb%+0.39)**2.447 [Euro]
+Cinv2_CT = %CTCost%*(%CEPCI_2020%/%CEPCI_2008%)*%Annuity% [Euro/y]
+```
+
+**Layers of the Cooling Tower ET**
+
+```{rosmose} 
+: OSMOSE LAYERS coolingtower
+
+| Layer     | Display name | shortname | Unit | Color |
+|:----------|:-------------|:----------|:-----|:------|
+|ELEC       |Electricity   |elec       |kW    |yellow |
+|WATER      |Water         |water      |kg/h  |blue   |
+```
+
+**Cooling tower unit of the Cooling Tower ET**
+
+```{rosmose} 
+: OSMOSE UNIT coolingtower
+
+| unit name |type   |
+|:----------|:------|
+| CoolTower |Utility| 
+```
+
+**Parameters of the Cooling Tower unit**
+
+```{rosmose CoolTower_params}
+: OSMOSE UNIT_PARAM CoolTower
+
+|cost1  |cost2  |cinv1  |cinv2      |imp1   |imp2   |fmin   |fmax   |
+|:------|:------|:------|:----------|:------|:------|:------|:------|
+|0      |0      |0      |%Cinv2_CT% |0      |0      |0      |100    |
+```
+
+**Cooling Tower Streams**
+
+Defining the resource streams, in this case electricity to the Cooling Tower
+
+*Resource Streams*
+
+
+```{rosmose CoolTower_rs}
+: OSMOSE RESOURCE_STREAMS CoolTower
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|ELEC       |in       |%E_ref_CT%           |
+|WATER      |in       |%watermu_CT%         |
+```
+
+*Heat Streams*
+
+```{rosmose CoolTower_hs}
+: OSMOSE HEAT_STREAMS CoolTower
+
+|name           |Tin        |Tout       |Hin |Hout          |DT min/2       |alpha  |
+|:--------------|:----------|:----------|:---|:-------------|:--------------|:------|
+|cooltowerheat  |%Cool_Tin% |%Cool_Tout%| 0  | %Cool_Qmax%  | %dtmin_liq%   |1      |
+```
+
+## Visualization of CoolingTower {-}

@@ -1,0 +1,278 @@
+---
+title: "Template Project"
+author: "Michel lopez <michel.lopez@epfl.ch>"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+    html_document:
+        theme: simplex
+        toc_depth: 3
+        toc: true
+        toc_float: true
+        collapse: true
+        smooth_scroll: true
+        dev: svg
+        code_folding: hide
+        number_sections: true
+        mathjax: default
+    pdf_document:
+        template: ipese/template.tex
+        citation_package: natbib
+        keep_tex: yes
+        dev: pdf
+    always_allow_html: yes
+venv: "../venv"
+---
+
+```{r}
+path <- file.path('../venv/bin/python3.10')
+library(reticulate)
+use_python(path)
+```
+
+
+# Mass and Energy Balance Calculations
+
+## Pasteurization section
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+# utility steam used for heating all streams is medium pressure steam at 3 bar entering as saturated vapor and leaving at saturated liquid
+P_steam = 3*101325
+T_steam = 134 + 273.15
+steam = State(pair='TP',fluid='Water',temperature=T_steam,pressure=P_steam)
+steam.StateCalc()
+print(steam.__dict__)
+P_sat_liq = 3*101325
+T_sat_liq = 133.5 + 273.15
+sat_liq = State(pair='TP',fluid='Water',temperature=T_sat_liq,pressure=P_sat_liq)
+sat_liq.StateCalc()
+print(sat_liq.__dict__)
+hlv = steam.enthalpy - sat_liq.enthalpy #latent heat of vaporization of MP steam at 3 bar
+print (hlv)
+
+```
+
+```{python}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+#Refrigeration 
+M_freshmilk = 8.0 #kg/s
+DM_freshmilk = 0.13 #dry matter mass fraction
+M_mixtureout = M_freshmilk
+DM_mixtureout = DM_freshmilk
+T_freshmilk = 6 + 273.15 # Temperature in Kelvin
+P_freshmilk = 101325 # Pressure in pascal 
+freshmilk = mixture(frac_water=1-DM_freshmilk, frac_fat=DM_freshmilk, T= T_freshmilk, P=P_freshmilk)
+print(freshmilk)
+T_mixtureout = 4 + 273.15
+P_mixtureout = 101325
+mixtureout = mixture(frac_water=1-DM_mixtureout, frac_fat=DM_mixtureout, T= T_mixtureout, P=P_mixtureout)
+print(mixtureout)
+Q_Refrigeration = M_mixtureout * mixtureout["enthalpy"] - M_freshmilk * freshmilk["enthalpy"]
+print("Heat removed in refrigeration", Q_Refrigeration, "W.")
+Cp_gw = 3900 #J/kg K
+T_gwin = -5 + 273.15
+T_gwout = -1 + 273.15
+M_gw_Refrigeration = - Q_Refrigeration / (Cp_gw * (T_gwout - T_gwin))
+
+#PAST1
+M_pastcent = M_mixtureout 
+DM_pastcent = DM_mixtureout
+T_pastcent = 60 + 273.15
+P_pastcent = 101325
+pastcent = mixture(frac_water=1-DM_pastcent, frac_fat=DM_pastcent, T= T_pastcent, P=P_pastcent)
+print(pastcent)
+Q_PAST1 = M_pastcent*pastcent["enthalpy"] - M_mixtureout*mixtureout["enthalpy"]
+print("Heat needed in PAST1", Q_PAST1, "W.")
+
+#Centrifuge
+#assume neglegible work of centrifuge and constant temperature
+M_milk0 = 7.52 #kg/s
+DM_milk0 = 0.117 #dry matter ratio of milk after pasteurization
+T_milk0 = 60 + 273.15 #governed by deltaT of 5K and subsequent heat exchangers
+P_milk0 = 101325 
+milk0 = mixture(frac_water=1-DM_milk0, frac_fat=DM_milk0, T= T_milk0, P=P_milk0)
+print (milk0)
+M_cream0 = M_pastcent - M_milk0
+DM_cream0 = (DM_pastcent*M_pastcent - DM_milk0*M_milk0) / M_cream0
+print (M_cream0, DM_cream0)
+T_cream0 = 60 + 273.15
+P_cream0 = 101325 
+cream0 = mixture(frac_water=1-DM_cream0, frac_fat=DM_cream0, T= T_cream0, P=P_cream0)
+print (cream0)
+
+#PAST2
+M_pasta = M_milk0
+DM_pasta = DM_milk0
+T_pasta = 70 + 273.15
+P_pasta = 101325 
+pasta = mixture(frac_water=1-DM_pasta, frac_fat=DM_pasta, T= T_pasta, P=P_pasta)
+Q_PAST2 = M_pasta*pasta["enthalpy"] - M_milk0*milk0["enthalpy"]
+print("Heat needed in PAST2", Q_PAST2, "W.")
+
+#PAST3
+M_pastb = M_pasta
+DM_pastb = DM_pasta
+T_pastb = 75 + 273.15
+P_pastb = 101325
+pastb = mixture(frac_water=1-DM_pastb, frac_fat=DM_pastb, T= T_pastb, P=P_pastb)
+Q_PAST3 = M_pastb*pastb["enthalpy"] - M_pasta*pasta["enthalpy"]
+print("Heat needed in PAST3", Q_PAST3, "W.")
+M_steam_PAST3 = Q_PAST3 / hlv
+
+
+
+#PAST2 tube-side
+M_pastc = M_pastb
+DM_pastc = DM_pastb
+T_pastc = 65 + 273.15
+P_pastc = 101325
+pastc = mixture(frac_water=1-DM_pastc, frac_fat=DM_pastc, T= T_pastc, P=P_pastc)
+Q_PAST2B = M_pastc*pastc["enthalpy"] - M_pastb*pastb["enthalpy"]
+print ("heat supplied in PAST2:" , Q_PAST2B, "W.")
+
+#Past1 tube side
+M_pastd = M_pastc
+DM_pastd = DM_pastc
+T_pastd = 6 + 273.15
+P_pastd = 101325
+pastd = mixture(frac_water=1-DM_pastd, frac_fat=DM_pastd, T= T_pastd, P=P_pastd)
+Q_PAST1B = M_pastd*pastd["enthalpy"] - M_pastc*pastc["enthalpy"]
+print ("heat supplied in PAST1:" , Q_PAST1B, "W.")
+
+#PAST4
+M_milk = 7.52 #kg/s 
+DM_milk = 0.117 #weight fraction of dry matter
+T_milk = 4 + 273.15
+P_milk = 101325 
+milk = mixture(frac_water=1-DM_milk, frac_fat=DM_milk, T= T_milk, P=P_milk)
+print (milk)
+Q_PAST4 = M_milk*milk["enthalpy"] - M_pastd*pastd["enthalpy"]
+print("Heat removed in PAST4", Q_PAST4, "W.")
+M_gw_PAST4 = - Q_PAST4 / (Cp_gw * (T_gwout - T_gwin))
+
+#Cream section
+M_cream = 0.55 #kg/s
+DM_cream = 0.35 #weight % dry matter
+M_thickener = 0.07 #kg/s
+DM_thickener = (M_cream*DM_cream - M_cream0*DM_cream0) / M_thickener
+print (DM_thickener)
+
+#PAST5
+M_crpasta = M_cream0
+DM_crpasta = DM_cream0
+T_crpasta = 70+273.15
+P_crpasta = 101325
+crpasta = mixture(frac_water=1-DM_crpasta, frac_fat=DM_crpasta, T= T_crpasta, P=P_crpasta)
+Q_PAST5 = M_crpasta*crpasta["enthalpy"] - M_cream0*cream0["enthalpy"]
+print("Heat needed in PAST5", Q_PAST5, "W.")
+
+#MIXER
+T_thickener = 4+273.15
+P_thickener = 101325
+thickener = mixture(frac_water=1-DM_thickener, frac_fat=DM_thickener, T= T_thickener, P=P_thickener)
+M_crpastx = M_crpasta + M_thickener 
+DM_crpastx = (DM_crpasta*M_crpasta + M_thickener*DM_thickener) / M_crpastx
+print (M_crpastx, DM_crpastx)
+T_crpastx = 62.18+273.15
+P_crpastx = 101325
+crpastx = mixture(frac_water=1-DM_crpastx, frac_fat=DM_crpastx, T= T_crpastx, P=P_crpastx)
+Mixer_balance = M_crpasta*crpasta["enthalpy"] + M_thickener*thickener["enthalpy"] - M_crpastx*crpastx["enthalpy"]
+
+#PAST6
+M_crpastb = M_crpastx 
+DM_crpastb = DM_crpastx
+T_crpastb = 75+273.15
+P_crpastb = 101325
+crpastb = mixture(frac_water=1-DM_crpastb, frac_fat=DM_crpastb, T= T_crpastb, P=P_crpastb)
+Q_PAST6 = M_crpastb*crpastb["enthalpy"] - M_crpastx*crpastx["enthalpy"]
+print("Heat needed in PAST6", Q_PAST6, "W.")
+M_steam_PAST6 = Q_PAST6 / hlv
+
+#PAST5 tube-side
+M_crpastc = M_crpastb
+DM_crpastc = DM_crpastb
+T_crpastc = 66.18 +273.17
+P_crpastc = 101325
+crpastc = mixture(frac_water=1-DM_crpastc, frac_fat=DM_crpastc, T= T_crpastc, P=P_crpastc)
+Q_PAST5B = M_crpastc*crpastc["enthalpy"] - M_crpastb*crpastb["enthalpy"]
+print("Heat supplied in PAST5", Q_PAST5B, "W.")
+
+#PAST7
+T_cream = 4+273.15
+P_cream = 101325
+cream = mixture(frac_water=1-DM_cream, frac_fat=DM_cream, T= T_cream, P=P_cream)
+
+Q_PAST7 = M_cream*cream["enthalpy"] - M_crpastc*crpastc["enthalpy"]
+print ("Heat removed in PAST7", Q_PAST7, "W. ")
+M_gw_PAST7 = - Q_PAST7 / (Cp_gw * (T_gwout - T_gwin))
+
+```
+```{python}
+M_cream_market = M_cream - M_mt5
+DM_cream_market = DM_cream
+T_cream_market = T_cream
+P_cream_market = P_cream
+print ("Part of the cream produced is sent to Mesost production section, the rest is sent to market this is equal to:" , round(M_cream_market*3600, 2), "kg/h")
+```
+```{python}
+Q_thickener = M_thickener*thickener["cpmass"]*(T_crpastx-T_thickener)/1000
+Q_crpasta = M_crpasta*crpasta["cpmass"]*(T_crpastx-T_crpasta)/1000
+print (Q_thickener, Q_crpasta)
+```
+
+
+
+```{python}
+print (M_gw_Refrigeration, M_gw_PAST7, M_gw_PAST7)
+```
+
+Saving data in JSON file
+
+```{python test-save-states, eval=F}
+from coolprop_functions import save_states
+states_list = {"freshmilk": freshmilk, "mixtureout": mixtureout, "pastcent": pastcent, "milk0": milk0, "pasta": pasta, "pastb": pastb, "pastc": pastc, "pastd": pastd, "milk": milk, "cream0": cream0, "crpasta" : crpasta, "crpastx": crpastx, "thickener": thickener, "crpastb": crpastb, "crpastc": crpastc , "cream": cream}
+save_states(states_list, 'scenario1')
+
+```
+
+```{python test-save-states, eval=F}
+from coolprop_functions import save_states
+states_list = {"Q_Refrigeration":Q_Refrigeration, "Q_PAST1": Q_PAST1, "Q_PAST2": Q_PAST2, "Q_PAST3": Q_PAST3, "Q_PAST4": Q_PAST4, "Q_PAST5": Q_PAST5, "Q_PAST6": Q_PAST6, "Q_PAST7":Q_PAST7}
+save_states(states_list, 'energy_bill')
+
+```
+
+```{python test-save-states, eval=F}
+from coolprop_functions import save_states
+states_list = {"M_gw_Refrigeration": M_gw_Refrigeration, "M_gw_PAST4": M_gw_PAST4, "M_gw_PAST7": M_gw_PAST7, "M_steam_PAST3": M_steam_PAST3, "M_steam_PAST6": M_steam_PAST6}
+save_states(states_list, 'utility')
+
+```
+
+```{python test-save-states, eval=F}
+from coolprop_functions import save_states
+states_list = {"T_freshmilk": T_freshmilk, "T_mixtureout": T_mixtureout, "T_pastcent": T_pastcent, "T_milk0": T_milk0, "T_pasta": T_pasta, "T_pastb": T_pastb, "T_pastc": T_pastc, "T_pastd": T_pastd, "T_milk": T_milk, "T_cream0": T_cream0, "T_crpasta" : T_crpasta, "T_crpastx": T_crpastx, "T_thickener": T_thickener, "T_crpastb": T_crpastb, "T_crpastc": T_crpastc , "T_cream": T_cream, "P_freshmilk": P_freshmilk, "P_mixtureout": P_mixtureout, "P_pastcent": P_pastcent, "P_milk0": P_milk0, "P_pasta": P_pasta, "P_pastb": P_pastb, "P_pastc": P_pastc, "P_pastd": P_pastd, "P_milk": P_milk, "P_cream0": P_cream0, "P_crpasta" : P_crpasta, "P_crpastx": P_crpastx, "P_thickener": P_thickener, "P_crpastb": P_crpastb, "P_crpastc": P_crpastc , "P_cream": P_cream, "M_freshmilk": M_freshmilk, "M_mixtureout": M_mixtureout, "M_pastcent": M_pastcent, "M_milk0": M_milk0, "M_pasta": M_pasta, "M_pastb": M_pastb, "M_pastc": M_pastc, "M_pastd": M_pastd, "M_milk": M_milk, "M_cream0": M_cream0, "M_crpasta" : M_crpasta, "M_crpastx": M_crpastx, "M_thickener": M_thickener, "M_crpastb": M_crpastb, "M_crpastc": M_crpastc , "M_cream": M_cream}
+save_states(states_list, 'streams')
+
+```
+
+
+loading data
+
+```{python, eval=F}
+from coolprop_functions import load_states
+
+data = load_states('results/scenario1.json')
+data
+
+```
+
+```{python, eval=F}
+S_freshmilk = ("freshmilk", T_freshmilk, M_freshmilk, freshmilk["enthalpy"]/1000)
+print (S_freshmilk)
+```
+
+

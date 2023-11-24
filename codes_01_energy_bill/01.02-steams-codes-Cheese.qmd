@@ -1,0 +1,159 @@
+```{r}
+path <- file.path('../venv/bin/python3.10')
+library(reticulate)
+use_python(path)
+```
+
+
+# Mass and Energy Balance Calculations
+
+## Cheese production section
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+#C-HEX1
+M_c1 = M_e13
+DM_c1 = DM_e13
+T_c1 = T_e13
+P_c1 = 101325
+c1 = mixture (frac_water=1-DM_c1, frac_fat=DM_c1, T= T_c1, P=P_c1)
+M_c2 = M_c1 
+DM_c2 = DM_c1
+T_c2 = 32 +273.15
+P_c2 = 101325
+c2 = mixture (frac_water=1-DM_c2, frac_fat=DM_c2, T= T_c2, P=P_c2)
+Q_CHEX1 = M_c2*c2["enthalpy"] - M_c1*c1["enthalpy"]
+print ("heat needed in C-HEX1 is: ", Q_CHEX1, "W .")
+M_steam_CHEX1 = Q_CHEX1/hlv
+
+#C-HEX2
+M_c3 = M_c2
+DM_c3 = DM_c2
+T_c3 = 56 + 273.15
+P_c3 = 101325
+c3 = mixture (frac_water=1-DM_c3, frac_fat=DM_c3, T= T_c3, P=P_c3)
+Q_CHEX2 = M_c3*c3["enthalpy"] - M_c2*c2["enthalpy"]
+print ("heat needed in C-HEX2 is: ", Q_CHEX2, "W .")
+M_steam_CHEX2 = Q_CHEX2/hlv
+
+#C-Filter
+M_c4 = 0.875 #kg/s based on 50% filter efficiency and 40% dry matter in whey/Lactoserum stream
+M_c5 = M_c3 - M_c4
+DM_c4 = 0.4 
+DM_c5 = (M_c3*DM_c3 - M_c4*DM_c4)/M_c5
+T_c4 = T_c3
+P_c4 = P_c3
+c4 = mixture (frac_water=1-DM_c4, frac_fat=DM_c4, T= T_c4, P=P_c4)
+T_c5 = T_c3
+P_c5 = P_c3
+c5 = mixture (frac_water=1-DM_c5, frac_fat=DM_c5, T= T_c5, P=P_c5)
+
+#Processing and cooling
+M_c6 = M_c5
+DM_c6 = DM_c5
+T_c6 = 16 + 273.15
+P_c6 = 101325
+c6 = mixture (frac_water=1-DM_c6, frac_fat=DM_c6, T= T_c6, P=P_c6)
+Q_Proc_Cooling = M_c6*c6["enthalpy"] - M_c5*c5["enthalpy"]
+print ("heat removed in processing and cooling: ", Q_Proc_Cooling, "W .")
+
+#Mixing and cooling
+M_c9 = M_c1 / 2.5
+M_c10 = M_c9 /2
+DM_c9 = (M_c6 * DM_c6)/M_c9
+M_c7 = (0.015*M_c9 + 0.019*0.28)/0.23
+M_c8 = M_c9 + M_c10 - (M_c6 + M_c7)
+T_c9 = 13+273.15
+P_c9 = 101325
+c9 = mixture (frac_water=1-DM_c9, frac_fat=DM_c9, T= T_c9, P=P_c9)
+print(c9)
+
+T_c7 = 25+273.15
+P_c7 = 101325
+c7 = State(pair='TP',fluid='Water',temperature=T_c7,pressure=P_c7)
+c7.StateCalc()
+print(c7.__dict__)
+
+T_c8 = 12+273.15
+P_c8 = 101325
+c8 = State(pair='TP',fluid='Water',temperature=T_c8,pressure=P_c8)
+c8.StateCalc()
+print(c8.__dict__)
+
+T_c10 = 13+273.15
+P_c10 = 101325
+c10 = State(pair='TP',fluid='Water',temperature=T_c10,pressure=P_c10)
+c10.StateCalc()
+print(c10.__dict__)
+DM_c10 = 0
+
+Q_mixing_cooling = M_c9*c9["enthalpy"] + M_c10*c10.enthalpy - M_c6*c6["enthalpy"] - M_c7*c7.enthalpy - M_c8*c8.enthalpy
+
+print ("heat removed during mixing and cooling: ", Q_mixing_cooling, "W .")
+
+```
+```{python, eval=F}
+import json
+filename = 'results/scenario1.json'
+entry = {'c1': c1, 'c2': c2, 'c3': c3, 'c4': c4, 'c5': c5, 'c6': c6, 'c7': c7.__dict__, 'c8': c8.__dict__, 'c9': c9, 'c10': c10.__dict__ }
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/energy_bill.json'
+entry = {'Q_CHEX1': Q_CHEX1, 'Q_CHEX2': Q_CHEX2, 'Q_Proc_Cooling': Q_Proc_Cooling, 'Q_mixing_cooling': Q_mixing_cooling}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/utility.json'
+entry = {'M_steam_CHEX1': M_steam_CHEX1, 'M_steam_CHEX2': M_steam_CHEX2}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/streams.json'
+entry = {"T_c1":T_c1 , "T_c2":T_c2 ,"T_c3":T_c3 , "T_c4":T_c4 , "T_c5":T_c5, "T_c6":T_c6, "T_c7":T_c7, "T_c8":T_c8, "T_c9":T_c9, "T_c10":T_c10,"P_c1":P_c1 , "P_c2":P_c2 ,"P_c3":P_c3 , "P_c4":P_c4 , "P_c5":P_c5, "P_c6":P_c6, "P_c7":P_c7, "P_c8":P_c8, "P_c9":P_c9, "P_c10":P_c10, "M_c1":M_c1 , "M_c2":M_c2 ,"M_c3":M_c3 , "M_c4":M_c4 , "M_c5":M_c5, "M_c6":M_c6, "M_c7":M_c7, "M_c8":M_c8, "M_c9":M_c9, "M_c10":M_c10}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```

@@ -1,0 +1,162 @@
+```{r}
+path <- file.path('../venv/bin/python3.10')
+library(reticulate)
+use_python(path)
+```
+
+
+# Mass and Energy Balance Calculations
+
+## Mesost production section
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+#MT-HEX1 and Separator
+M_mt1 = M_c4 + M_e22
+DM_mt1 = (DM_c4*M_c4 + DM_e22*M_e22)/M_mt1
+T_mt1 = (M_c4*T_c4 + M_e22*T_e22)/(M_mt1)
+print(T_c4, T_e22, T_mt1)
+P_mt1 = 101325
+mt1 = mixture (frac_water=1-DM_mt1, frac_fat=DM_mt1, T= T_mt1, P=P_mt1)
+
+M_mt2 = M_mt1
+DM_mt2 = DM_mt1
+P_mt2 = 101325
+T_mt2 = 101+273.15
+mt2 = mixture (frac_water=1-DM_mt2, frac_fat=DM_mt2, T= T_mt2, P=P_mt2)
+
+T_mt3 = T_mt2
+P_mt3 = 101325
+T_mt4 = 99.9+273.15
+P_mt4 = 101325
+DM_mt3 = 0 #mt3 is a vapor stream no dry matter 
+DM_mt4 = 0.25 # Prem is 25% dry matter
+M_mt4 = (M_mt2*DM_mt2)/DM_mt4
+M_mt3 = M_mt2 - M_mt4
+print (M_mt2, M_mt3, M_mt4)
+mt4 = mixture (frac_water=1-DM_mt4, frac_fat=DM_mt4, T= T_mt4, P=P_mt4)
+mt3 = State(pair='TP',fluid='Water',temperature=T_mt3,pressure=P_mt3)
+mt3.StateCalc()
+print(mt3.__dict__)
+
+
+Q_mt_deltaT = M_mt1*mt1["cpmass"]*(T_mt2-T_mt1)
+hlv_1bar = 2403419 #J/kg 
+Q_mt_evap = M_mt3* hlv_1bar
+Q_MTHEX1 = Q_mt_deltaT + Q_mt_evap
+M_steam_MTHEX1 = Q_MTHEX1 / hlv
+
+print("heat needed in MTHEX1: ", Q_MTHEX1/1000, "kW.")
+
+
+#Mixer
+M_mt8 = (M_mt1 - M_mt3)/0.97 #Cream is 3% of total Mesost mass
+M_mt5 = 0.03*M_mt8
+DM_mt5 = DM_cream
+P_mt5 = 101325
+T_mt5 = 8+273.15
+mt5 = mixture (frac_water=1-DM_mt5, frac_fat=DM_mt5, T= T_mt5, P=P_mt5)
+M_mt6 = M_mt4 + M_mt5
+DM_mt6 = (DM_mt4*M_mt4 + DM_mt5*M_mt5)/M_mt6
+T_mt6 = 97.32 +273.15 #trial and error to for energy balance of mixer
+P_mt6 = 101325
+print (T_mt6, M_mt5, M_mt8)
+mt6 = mixture (frac_water=1-DM_mt6, frac_fat=DM_mt6, T= T_mt6, P=P_mt6)
+
+#Packaging
+M_mt7 = M_mt6
+DM_mt7 = DM_mt6
+T_mt7 = T_mt6 - 10  #Mesost looses 10°C during packaging
+P_mt7 = 101325
+mt7 = mixture (frac_water=1-DM_mt7, frac_fat=DM_mt7, T= T_mt7, P=P_mt7)
+Q_packaging = M_mt7*mt7["enthalpy"] - M_mt6*mt6["enthalpy"]
+print ("heat lost during packaging is: ", Q_packaging/1000, "kW .")
+
+#MTHEX2
+M_mt8 = M_mt7
+DM_mt8 = DM_mt7
+T_mt8 = 8+273.15
+P_mt8 = 101325
+mt8 = mixture (frac_water=1-DM_mt8, frac_fat=DM_mt8, T= T_mt8, P=P_mt8)
+Q_MTHEX2 = M_mt8*mt8["enthalpy"] - M_mt7*mt7["enthalpy"]
+print ("heat removed in Q_MTHEX2 is: ", Q_MTHEX2/1000, "kW .")
+M_gw_MTHEX2 = - Q_MTHEX2 / (Cp_gw * (T_gwout - T_gwin))
+
+```
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+heat_mt4 = M_mt4*mt4["cpmass"]*(T_mt6-T_mt4)
+heat_mt5 = M_mt5*mt5["cpmass"]*(T_mt6-T_mt5)
+heat_packaging = M_mt6*mt6["cpmass"]*(T_mt7-T_mt6)
+
+print(heat_mt4/1000, heat_mt5/1000, heat_packaging/1000)
+```
+
+
+
+```{python, eval=F}
+import json
+filename = 'results/scenario1.json'
+entry = {'mt1': mt1, 'mt2': mt2, 'mt3': mt3.__dict__, 'mt4': mt4, 'mt5': mt5, 'mt6': mt6, 'mt7': mt7, 'mt8': mt8}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/energy_bill.json'
+entry = {'Q_MTHEX1': Q_MTHEX1, 'Q_MTHEX2': Q_MTHEX2}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/utility.json'
+entry = {'M_steam_MTHEX1': M_steam_MTHEX1, 'M_gw_MTHEX2': M_gw_MTHEX2}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/streams.json'
+entry = {'T_mt1': T_mt1, 'T_mt2': T_mt2, 'T_mt3': T_mt3, 'T_mt4': T_mt4, 'T_mt5': T_mt5, 'T_mt6': T_mt6, 'T_mt7': T_mt7, 'T_mt8': T_mt8,'P_mt1': P_mt1, 'P_mt2': P_mt2, 'P_mt3': P_mt3, 'P_mt4': P_mt4, 'P_mt5': P_mt5, 'P_mt6': P_mt6, 'P_mt7': P_mt7, 'P_mt8': P_mt8, 'M_mt1': M_mt1, 'M_mt2': M_mt2, 'M_mt3': M_mt3, 'M_mt4': M_mt4, 'M_mt5': M_mt5, 'M_mt6': M_mt6, 'M_mt7': M_mt7, 'M_mt8': M_mt8 }
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```

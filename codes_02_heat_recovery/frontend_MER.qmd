@@ -1,0 +1,168 @@
+---
+title: "Dairy Process Optimization"
+author:
+  - "EPFL IPESE"
+unitname:
+  faculty: School of Engineering
+  institute: Mechanical Engineering
+  laboratory: Industrial Process and Energy Systems Engineering
+advisor: François Maréchal
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+    html:
+        theme: simplex
+        toc_depth: 3
+        toc: true
+        toc_float: true
+        collapse: true
+        smooth_scroll: true
+        dev: svg
+        code_folding: hide
+        number_sections: true
+        mathjax: default
+        fig-format: svg
+venv: "../venv"
+---
+
+```{r setup, warning = F, results = "hide", message=F}
+source("../rosmose-setup.R", local = knitr::knit_global())
+```
+
+# Introduction {-}
+
+This report presents ROSMOSE integration results of various scenarios studying the dairy process including it's heat integration, valorization of certain waste products, and minimum energy requirements based on pinch analysis targets. 
+
+# Problem Definition {-}
+
+This project will use a model named **DairyProcess**.
+
+A dairy process optimization run can include the following unit configurations:
+
+* Dairy Process: Pasteurization, evaporation, cheese, mesost, cleaning-in-place, wastewater treatment, and disposal. 
+
+* Other options for utilization of whey stream: soft drink or biogas production.
+
+
+
+```{r child = 'model/DairyProcess/DairyProcess.rmd'}
+```
+
+## Visualization of Dairy Process {-}
+
+
+```{rosmose display et, fig.cap="dairyprocess-visualize", out.height="80%"}
+: OSMOSE DISPLAY_ET dairyprocess
+```
+
+<!-- ```{rosmose configure solver gurobi}
+: OSMOSE OPTIONS mathProg
+
+| Property       | Value         | Comments |
+|:---------------|:--------------|:---------|
+| language       | ampl          |          |
+| solver         | gurobi        |          |
+| solver_options | {}            |          |
+```
+ -->
+
+
+
+<!-- ```{rosmose configure solver cbc}
+: OSMOSE OPTIONS mathProg
+
+| Property    | Value         | Comments |
+|:------------|:--------------|:---------|
+| language    | ampl          |          |
+| solver_name | cbc           |          |
+``` -->
+
+
+```{rosmose solve-osmose}
+! OSMOSE SOLVE dairy MER [dairyprocess]
+
+|name   |value|
+|:------|:----|
+|op_time|8760 |
+```
+
+<!-- The following code chunck can be used in case of sealizing the models to generate OSMOSE lua files that enable debugging the system -->
+
+<!-- ```{rosmose}
+#! OSMOSE SERIALIZE_PROJECT dairy MER [dairyprocess]
+``` -->
+
+<!-- The following code is used to retrieve the data of the generated JSON file -->
+
+```{r, eval=T, echo=FALSE} 
+library(jsonlite)
+pfilename<-"result/dairy-1.json"
+data <- fromJSON(pfilename, flatten=FALSE)
+```
+
+<!-- The following code is about reporting the optimization results and plotting the pertinent plots for the corresponding optimization scenarios -->
+
+# Optimization Results {-}
+
+## Energy Requirements {-} 
+
+```{r print energy results, eval=T, echo=FALSE} 
+cat("Minimum Heating Requirement:", data$results$delta_hot[[1]]$Clu$DefaultHeatCascade, "kW","\n") 
+cat("Minimum Cooling Requirement:", data$results$delta_cold[[1]]$Clu$DefaultHeatCascade, "kW") 
+```
+
+## Plots {-}
+
+**Hot and cold Composite curves**
+
+```{r cc, eval = TRUE, echo = FALSE}
+display_cc <- function(time=1){
+  graphs <- data$results$graph[[1]]
+  graph <- graphs[[time]]
+  graph <- graph[graph$plot_type == "cc",]$data[[1]]
+  hcc <- graph[graph$title == "Hot streams",]$curve[[1]]
+  ccc <- graph[graph$title == "Cold streams",]$curve[[1]]
+
+  if (!is_empty(hcc) && !is_empty(ccc)){
+    plot_ly() %>%
+            add_trace(x=hcc$Q, y=hcc$T-273.15, mode = 'lines', line=list(color='red'), name='Hot Streams') %>%
+            add_trace(x=ccc$Q, y=ccc$T-273.15, mode = 'lines', line=list(color='blue'),  name='Cold Streams') %>%
+            layout(xaxis= list(title = "Heat load [kW]"),
+                   yaxis= list(title = "Corrected Temperature [°C]"),
+                   margin= list(l=50, r=0, b=40, t=40),
+                   title = "Composite Curves"
+            )
+
+
+  } else {
+    print(paste("There is no CC for timestep", time))
+  }
+}
+
+display_cc()
+```
+
+**Grand Composite Curve**
+
+```{r gcc, eval = TRUE, echo = FALSE}
+display_gcc <- function(time=1){
+  graphs <- data$results$graph[[1]]
+  graph <- graphs[[time]]
+  graph <- graph[graph$plot_type == "gcc",]$data[[1]]
+  gcc <- graph$curve[[1]]
+
+  if (!is_empty(gcc)){
+    plot_ly() %>%
+
+      add_trace(x=gcc$Q, y=gcc$T-273.15, mode = 'lines', line=list(color='green'), name='GCC') %>%
+      layout(xaxis= list(title = "Heat load [kW]"),
+             yaxis= list(title = "Corrected Temperature [°C]"),
+             margin= list(l=50, r=50, b=40, t=40),
+             title = "Grand Composite Curve"
+            )
+  } else {
+    print(paste("There is no GCC for timestep", time))
+  }
+}
+
+display_gcc()
+```

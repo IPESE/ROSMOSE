@@ -1,0 +1,219 @@
+# Pinch analysis {#sec-pinch}
+
+## Overview
+
+Pinch analysis is a systematic technique for analysing heat flows in an industrial process. It enables determining the minimum energy requirements (MER) of a system by calculating thermodynamically feasible energy targets and presents methods of achieving them through optimising heat recovery systems and utiity selection. Here, we give an example based on the evaluated dairy processes for pinch analysis using the ROSMOSE tool developed by [IPESE](https://www.epfl.ch/labs/ipese/ipese-resources/).
+
+> What is **Rosmose**?
+>
+> - R: interface through R-studio or Quarto
+> - OSMOSE: ‘OptimiSation Multi-Objectifs de Systèmes Énergétiques Intégrés’
+
+## How to run Rosmose
+
+The Rosmose tool is installed in the folder `codes_02_heat-recovery`. In this folder, you can find the following directories and files.
+
+- `frontend_MER.qmd` or `frontend_TotalCost.qmd` - the script files for your optimisation runs.
+- `model` - the folder including different energy technologies
+- `results` - containing the results of your calculation
+
+To obtain the report of the Rosmose optimization, choose one method from the following options:
+
+- run the following command in your terminal: `quarto preview ./codes_02_heat_recovery/frontend_MER.qmd`
+
+- or open the file `codes_02_heat_recovery/frontend_dairy.qmd`, click "preview" on the top-right.
+
+An automatic .html report will be generated, listing all the information and results relating to your specific optimisation run.
+
+
+## Optimization Results {-}
+
+The results are saved in the `codes_02_heat_recovery/result/` file. You can use `r` or `python` chunks to access the information which are useful for your project reporting. For instance, the energy requirements are presented below.
+
+```{r, eval = T}
+library(jsonlite)
+pfilename<-"codes_02_heat_recovery/result/dairy-1.json"
+data <- fromJSON(pfilename, flatten=FALSE)
+cat("Minimum Heating Requirement:", data$results$delta_hot[[1]]$Clu$DefaultHeatCascade, "kW","\n") 
+cat("Minimum Cooling Requirement:", data$results$delta_cold[[1]]$Clu$DefaultHeatCascade, "kW") 
+```
+
+### Plots {-}
+
+The hot and cold composite curves of the process can be plotted using the following code chunk
+
+**Hot and Cold Composite Curves**
+
+```{r cc, eval = TRUE, message =F}
+library ('purrr')
+library('plotly')
+display_cc <- function(time=1){
+  graphs <- data$results$graph[[1]]
+  graph <- graphs[[time]]
+  graph <- graph[graph$plot_type == "cc",]$data[[1]]
+  hcc <- graph[graph$title == "Hot streams",]$curve[[1]]
+  ccc <- graph[graph$title == "Cold streams",]$curve[[1]]
+
+  if (!is_empty(hcc) && !is_empty(ccc)){
+    plot_ly() %>%
+            add_trace(x=hcc$Q, y=hcc$T-273.15, mode = 'lines', line=list(color='red'), name='Hot Streams') %>%
+            add_trace(x=ccc$Q, y=ccc$T-273.15, mode = 'lines', line=list(color='blue'),  name='Cold Streams') %>%
+            layout(xaxis= list(title = "Heat load [kW]"),
+                   yaxis= list(title = "Corrected Temperature [°C]"),
+                   margin= list(l=50, r=0, b=40, t=40),
+                   title = "Composite Curves"
+            )
+
+
+  } else {
+    print(paste("There is no CC for timestep", time))
+  }
+}
+
+display_cc()
+```
+
+The grand composite curve is plotted using a similar function
+
+
+**Grand Composite Curve**
+
+```{r gcc, eval = TRUE, message =F}
+library ('purrr')
+library('plotly')
+display_gcc <- function(time=1){
+  graphs <- data$results$graph[[1]]
+  graph <- graphs[[time]]
+  graph <- graph[graph$plot_type == "gcc",]$data[[1]]
+  gcc <- graph$curve[[1]]
+
+  if (!is_empty(gcc)){
+    plot_ly() %>%
+
+      add_trace(x=gcc$Q, y=gcc$T-273.15, mode = 'lines', line=list(color='green'), name='GCC') %>%
+      layout(xaxis= list(title = "Heat load [kW]"),
+             yaxis= list(title = "Corrected Temperature [°C]"),
+             margin= list(l=50, r=50, b=40, t=40),
+             title = "Grand Composite Curve"
+            )
+  } else {
+    print(paste("There is no GCC for timestep", time))
+  }
+}
+
+display_gcc()
+```
+
+A simple example integrating conventional utilities has also been run, with the results exctraction and plotting presented below.
+
+
+### Capital and Operational Expenditures {-}
+
+```{r print economic results, echo=FALSE}
+library(jsonlite)
+pfilename<-"codes_02_heat_recovery/result/dairy-2.json"
+data <- fromJSON(pfilename, flatten=FALSE)
+cat("CAPEX:", data$results$KPIs$capex)
+cat("OPEX:", data$results$KPIs$opex)
+```
+
+**Integrated Composite Curve**
+
+```{r icc , echo=FALSE, message=F}
+display_icc <- function(time=1){
+  graphs <- data$results$graph[[1]]
+  graph <- graphs[[time]]
+  graph <- graph[graph$plot_type == "icc.utilities",]$data[[1]]
+  base <- graph[graph$title == "base",]$curve[[1]]
+  utilities <- graph[graph$title == "utilities",]$curve[[1]]
+
+  if (!is_empty(base) && !is_empty(utilities)){
+    plot_ly() %>%
+            add_trace(x=base$Q, y=base$T-273.15, mode = 'lines', line=list(color='red'),  name='base') %>%
+            add_trace(x=utilities$Q, y=utilities$T-273.15, mode = 'lines', line=list(color='blue'),  name='utilities') %>%
+            layout(xaxis= list(title = "Heat load [kW]"),
+                   yaxis= list(title = "Corrected Temperature [°C]"),
+                   margin= list(l=50, r=20, b=40, t=40),
+                   yaxis2 = list(overlaying = "y", side = "right", title = 'Carnot factor 1-To/T [-]'),
+                   title = "Integrated Composite Curve"
+            )
+
+  } else {
+    print(paste("There is no ICC for timestep", time))
+  }
+}
+
+display_icc()
+```
+
+**Thermal Exergy of Integrated Utilities**
+
+```{r carnot , echo=FALSE, message=F}
+display_carnot <- function(time=1){
+  graphs <- data$results$graph[[1]]
+  graph <- graphs[[time]]
+  graph <- graph[graph$plot_type == "carnot.utilities",]$data[[1]]
+  base <- graph[graph$title == "base",]$curve[[1]]
+  utilities <- graph[graph$title == "utilities",]$curve[[1]]
+
+  if (!is_empty(base) && !is_empty(utilities)){
+    plot_ly() %>%
+            add_trace(x=base$Q, y=base$T, mode = 'lines', line=list(color='red'), name='base') %>%
+            add_trace(x=utilities$Q, y=utilities$T, mode = 'lines', line=list(color='blue'),  name='utilities') %>%
+            layout(xaxis= list(title = "Heat load [kW]"),
+                   yaxis= list(title = "Carnot factor 1-To/T [-]"),
+                   margin= list(l=50, r=20, b=40, t=40),
+                   title = "Thermal Exergy of Integrated Utilities"
+            )
+
+  } else {
+    print(paste("There is no Carnot for timestep", time))
+  }
+}
+
+display_carnot(1)
+```
+
+
+## Heat Exchanger Network {-}
+
+The heat exchanger network area required to attain the minimum energy requirement is extracted from OSMOSE optimization results.
+The minimum number of heat exchangers for the network and average area per heat exchanger can also be calculated from the simulation outputs.
+Next the cost of this heat exchanger network can be computed based on the equations published in Turton 1998 and corrected by the chemical engineering plant cost index (CEPCI) for 2023.
+
+```{r, echo=FALSE, message=F}
+get_HEN <- function () {
+  spag_area <- data$results$spaghetti[[1]]$Clu$DefaultHeatCascade$area_total
+  min_number_HEX <- data$results$spaghetti[[1]]$Clu$DefaultHeatCascade$HEs
+  hex_area <- spag_area / min_number_HEX
+  n <- 15 # years, lifetime of a heat exchanger
+  i <- 0.05 # fractional interest rate per year
+  an_factor <- (i*(1+i)^n/((1+i)^n-1))
+  k1 <- 3.2138
+  k2 <- 0.2685
+  k3 <- 0.07961
+  Fp <- (10^(k1+ k2*log10(hex_area)+ k3*(log10(hex_area))^2))
+  Fm <- 3 #stainless steel shell and tube
+  B1 <- 1.8
+  B2 <- 1.5
+  F_BM <- (B1+(B2*Fm*Fp))
+  CEPCI_1998 <- 382
+  CEPCI_2023 <- 600
+  c_hen <- (F_BM*(CEPCI_2023/CEPCI_1998)*an_factor*min_number_HEX)
+  return(list("hen_area" = spag_area,"min_number_HEX" = min_number_HEX ,"hex_area" = hex_area, "an_factor" = an_factor, "c_hen"= c_hen))
+}
+
+hen <- get_HEN()
+```
+
+
+Heat exchanger network area: `r hen$hen_area` m^2^.
+
+Minimum number of heat exchangers: `r hen$min_number_HEX`.
+
+Average area per heat exchanger: `r hen$hex_area` m^2^.
+
+Annualized cost of heat exchanger network: `r hen$c_hen` $/y.
+
+Annualization factor: `r hen$an_factor`.
+

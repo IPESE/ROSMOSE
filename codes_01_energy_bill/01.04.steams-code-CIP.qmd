@@ -1,0 +1,219 @@
+```{r}
+path <- file.path('../venv/bin/python3.10')
+library(reticulate)
+use_python(path)
+```
+
+
+# Mass and Energy Balance Calculations
+
+## Cleaning in place section
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+#make-up water flowrate calculated by trial and error to satisfy the temperatures of the streams leaving the mixer
+
+M_CIP1 = 1.2 #kg/s
+T_CIP1 = 25+273.15
+P_CIP1 = 101325
+CIP1 = State(pair='TP',fluid='Water',temperature=T_CIP1,pressure=P_CIP1)
+CIP1.StateCalc()
+print(CIP1.__dict__)
+
+#Mixer
+M_CIP2 = 4.0 #kg/S
+T_CIP2 = 60+273.15
+P_CIP2 = 101325
+CIP2 = State(pair='TP',fluid='Water',temperature=T_CIP2,pressure=P_CIP2)
+CIP2.StateCalc()
+print(CIP2.__dict__)
+
+M_CIP5 = M_CIP2 - M_CIP1
+T_CIP5 = 75+273.15
+P_CIP5 = 101325
+CIP5 = State(pair='TP',fluid='Water',temperature=T_CIP5,pressure=P_CIP5)
+CIP5.StateCalc()
+print(CIP5.__dict__)
+
+Q_mixer = M_CIP1 * CIP1.enthalpy + M_CIP5 * CIP5.enthalpy - M_CIP2 * CIP2.enthalpy
+print (Q_mixer)
+
+#CIP-HEX
+M_CIP3 = 2.0 #kg/s
+M_CIP10 = 2.0 #kg/s
+T_CIP3 = 80+273.15
+T_CIP10 = 80+273.15
+P_CIP3 = 101325
+P_CIP10 = 101325
+
+CIP3 = State(pair='TP',fluid='Water',temperature=T_CIP3,pressure=P_CIP3)
+CIP3.StateCalc()
+print(CIP3.__dict__)
+
+CIP10 = State(pair='TP',fluid='Water',temperature=T_CIP10,pressure=P_CIP10)
+CIP10.StateCalc()
+print(CIP10.__dict__)
+
+Q_CIPHEX = M_CIP3* CIP3.enthalpy + M_CIP10* CIP10.enthalpy - M_CIP2* CIP2.enthalpy
+M_steam_CIPHEX = Q_CIPHEX/hlv
+print ("Heat needed in CIP-HEX: ", Q_CIPHEX, "W, which can be acheived using" , M_steam_CIPHEX, "kg/s of steam.")
+
+#Shower-1 and Shower-2 
+M_CIP4 = M_CIP3 
+T_CIP4 = 75+273.15
+P_CIP4 = 101325
+CIP4 = State(pair='TP',fluid='Water',temperature=T_CIP4,pressure=P_CIP4)
+CIP4.StateCalc()
+print(CIP4.__dict__)
+
+Q_shower1 = M_CIP4*CIP4.enthalpy - M_CIP3*CIP3.enthalpy
+
+W_CIP8 = 0.37 #kg
+T_CIP8 = 25+273.15
+t_shower1 = 500 / (M_CIP3*1000)
+N_bottles_shower1 = 5
+M_CIP8 = N_bottles_shower1 * W_CIP8 / t_shower1
+Cp_glass = 753 #J/kg°C
+
+T_CIP9 = T_CIP8 + (-1*Q_shower1) / (M_CIP8*Cp_glass)
+
+
+M_CIP12 = M_CIP10
+T_CIP12 = 75+273.15
+P_CIP12 = 101325
+CIP12 = State(pair='TP',fluid='Water',temperature=T_CIP12,pressure=P_CIP12)
+CIP12.StateCalc()
+print(CIP12.__dict__)
+Q_shower2 = M_CIP12*CIP12.enthalpy - M_CIP10*CIP10.enthalpy
+
+M_CIP9 = M_CIP8
+T_CIP11 = T_CIP9 + (-1*Q_shower2) / (M_CIP9*Cp_glass)
+M_CIP11 = M_CIP9
+
+print (T_CIP9, T_CIP11)
+
+M_CIP6 = M_CIP4 + M_CIP12 - M_CIP5
+T_CIP6 = 75+273.15
+P_CIP6 = 101325
+CIP6  = State(pair='TP',fluid='Water',temperature=T_CIP6,pressure=P_CIP6)
+CIP6.StateCalc()
+print(CIP6.__dict__)
+
+M_CIP7 = M_CIP6 
+T_CIP7 = 30+273.15
+P_CIP7 = 101325
+
+CIP7  = State(pair='TP',fluid='Water',temperature=T_CIP7,pressure=P_CIP7)
+CIP7.StateCalc()
+print(CIP7.__dict__)
+
+Q_CIP_cooling = M_CIP7*CIP7.enthalpy - M_CIP6*CIP6.enthalpy
+
+#assume cooling water is available at 20°C with an allowed deltaT of 5°C
+
+Cp_cooling_water = 4200 #J/kg°C
+
+M_CIP_cooling_water = -Q_CIP_cooling / (Cp_cooling_water * (25-20))
+
+print (Q_CIP_cooling, M_CIP_cooling_water)
+```
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+#heat_CIP1 = M_CIP1*CIP1.cpmass*(T_CIP2-T_CIP1)
+#heat_CIP5 = M_CIP5*CIP5.cpmass*(T_CIP2-T_CIP5)
+Q_shower = Q_shower1 + Q_shower2
+Q_CIP_water = 4*4.2*(75-80)
+print(Q_shower/1000, Q_CIP_water)
+
+#print(heat_CIP1/1000, heat_CIP5/1000)
+
+```
+
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+#Cold storage and hot water
+
+Q_fridge = 500.0*1 #kW
+T_air_in = 0+273.15
+T_air_out = -5+273.15
+Cp_air = 1000 #J/kg°C
+M_air = Q_fridge / (Cp_air*(T_air_in - T_air_out ))
+
+M_hotwater = 1 #kg/s
+T_water_in = 15 + 273.15
+T_water_out = 55 + 273.15 
+Q_hotwater = M_hotwater*4200*(T_water_out - T_water_in)
+
+
+```
+
+
+
+```{python, eval=F}
+import json
+filename = 'results/scenario1.json'
+entry = {'CIP1': CIP1.__dict__, 'CIP2': CIP2.__dict__, 'CIP3': CIP3.__dict__, 'CIP4': CIP4.__dict__, 'CIP5': CIP5.__dict__, 'CIP6': CIP6.__dict__, 'CIP7': CIP7.__dict__, 'CIP10': CIP10.__dict__, 'CIP12': CIP12.__dict__}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/energy_bill.json'
+entry = {'Q_CIPHEX': Q_CIPHEX, 'Q_CIP_cooling': Q_CIP_cooling, 'Q_hotwater': Q_hotwater, 'Q_fridge': Q_fridge}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+
+```
+
+```{python, eval=F}
+import json
+filename = 'results/utility.json'
+entry = {'M_steam_CIPHEX': M_steam_CIPHEX, 'M_CIP_cooling_water': M_CIP_cooling_water}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+```{python, eval=F}
+import json
+filename = 'results/streams.json'
+entry = {'T_CIP1': T_CIP1, 'T_CIP2': T_CIP2, 'T_CIP3': T_CIP3, 'T_CIP4': T_CIP4, 'T_CIP5': T_CIP5, 'T_CIP6': T_CIP6, 'T_CIP7': T_CIP7, 'T_CIP10': T_CIP10,'T_CIP12': T_CIP12,'P_CIP1': P_CIP1, 'P_CIP2': P_CIP2, 'P_CIP3': P_CIP3, 'P_CIP4': P_CIP4, 'P_CIP5': P_CIP5, 'P_CIP6': P_CIP6, 'P_CIP7': P_CIP7,'P_CIP10': P_CIP10, 'P_CIP12': P_CIP12,'M_CIP1': M_CIP1, 'M_CIP2': M_CIP2, 'M_CIP3': M_CIP3, 'M_CIP4': M_CIP4, 'M_CIP5': M_CIP5, 'M_CIP6': M_CIP6, 'M_CIP7': M_CIP7, 'M_CIP10': M_CIP10,'M_CIP12': M_CIP12}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```

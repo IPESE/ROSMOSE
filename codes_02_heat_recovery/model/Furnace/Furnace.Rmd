@@ -1,0 +1,112 @@
+# Furnace {-}
+
+```{rosmose furnace}
+! OSMOSE ET furnace
+```
+
+
+```{rosmose} 
+Tad = 2025 [C] # Adiabatic flame temperature of the fuel 
+dtmin_radiation = 2 [C] # radiation delta t mininum
+dtmin_convection = 8 [C] # convection delta t mininum
+To = 25 [C] # Tamb = To = Tchemicalreference
+Trad= 1050 [C] # Radiation temperature threshold, actual temperature is 1050°C but 400 can be used for plot visualization
+Tstack = 100 [C] # Stack temperature threshold for no dew point
+MWair = 29 [kg/kmol] # Molecular weight of dry air = 79% N2 + 21% O2
+MWfuel = 16 [kg/kmol] # Molecular weight of methane
+losses = 0.03 [-] # 3% Furnace losses
+LHV = 50000 [kJ/kg] # natural gas LHV @ 25°C,1 bar
+molratst = 9.52 [kmol/kmol] # Stoich molar air to fuel ratio
+a = 1.02 [-] # excess air as in: CH4 + a*2(O2+3.76N2) --> CO2 + 2H2O + 2*3.76N2 + 2(a-1)(O2 + 3.76N2)
+cpair = 1.075 [kJ/kg/K] # Air heat capacity @427°C, 1bar (Engineering toolbox)
+Tprin = 26 [C] # Preheating temperature
+Furnace_natGas_LOAD = 1000 [kW] # Reference furnace load 
+Spec_heaterCost = 200 [Euro/kW]
+n = 40.0 [yr] #lifetime of a furnace
+i = 0.06 [-] #interest rate
+CEPCI_2020 = 596.2 [-] # actual CEPCI
+CEPCI_2008 = 575.4 [-] # CEPCI 2008
+```
+
+
+```{rosmose} 
+v = %molratst% * %MWair% / %MWfuel% [kg/kg] # stoich air to fuel mass ratio
+cpg = %Furnace_natGas_LOAD% / (%Tad% - %To%) [kW/K] # Flue gases heat capacity @1bar
+Tad_corr = %To% + (%Furnace_natGas_LOAD% / (%cpg% + (%cpair% * (%a% -1) * %v% * %Furnace_natGas_LOAD% / %LHV%))) [C] # Corrected adiabatic flame temperature
+cpg_corr = %Furnace_natGas_LOAD% / (%Tad_corr% - %To%) [kW/K] # Corrected flue gases heat capacity @1bar 
+Q_rad_gross = (%Furnace_natGas_LOAD% * (%Tad_corr% - %Trad%) / (%Tad_corr% - %To%)) [kW] # Heat flow rate at the radiation threshold temperature
+Q_conv_gross = %Furnace_natGas_LOAD% * (%Trad% - %Tstack%) / (%Tad_corr% - %To%) [kW] # Heat flow rate at the convection threshold temperature 
+Q_preh = %cpair% * %v% * %Furnace_natGas_LOAD% / %LHV% * (%Tprin% - %To%) [kW] # Air preheating load
+Q_stack = %cpg_corr% * (%Tstack% - %To%) [kW] # Stack losses
+Q_radpreh = %Q_preh% + %Q_rad_gross% [kW] # Preheating load added to the highest temperature
+Q_demand = %Furnace_natGas_LOAD% / (1-%losses%) [kW] # Total energy consumption by the furnace
+Annuity = (%i%*(1+%i%)**%n%)/((1+%i%)**%n%-1) [-] #annualization factor
+Cinv2_NGFur = %Spec_heaterCost%*%Furnace_natGas_LOAD%*(%CEPCI_2020%/%CEPCI_2008%)*%Annuity% [Euro/y]
+
+```
+
+<!-- ## These are the input and calculated parameters {-} -->
+
+<!-- ```{rosmose} -->
+<!-- : TAGS DISPLAY_TAGS [nvuD] -->
+<!-- ``` -->
+
+**Layers of the Furnace ET**
+
+```{rosmose} 
+: OSMOSE LAYERS furnace
+
+| Layer         | Display name | shortname | Unit | Color |
+|:--------------|:-------------|:----------|:-----|:------|
+|NATGAS         |Gas           |ng         |kW    |green  |
+
+```
+
+**Furnace unit of the Furnace ET**
+
+```{rosmose} 
+: OSMOSE UNIT furnace
+
+|unit name  |type   |
+|:----------|:------|
+|Furnace    |Utility|
+```
+
+**Parameters of the Furnace unit**
+
+```{rosmose Furnace_params}
+: OSMOSE UNIT_PARAM Furnace
+
+|cost1  |cost2  |cinv1  |cinv2         |imp1   |imp2   |fmin   |fmax   |
+|:------|:------|:------|:-------------|:------|:------|:------|:------|
+|0      |0      |0      |%Cinv2_NGFur% |0      |0      |0      |100    |
+```
+
+
+**Furnace Streams**
+
+*Resource Streams*
+Defining the resource streams, in this case natural gas to the furnace
+
+```{rosmose Furnace_rs}
+: OSMOSE RESOURCE_STREAMS Furnace
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|NATGAS     | in      |%Q_demand%           |
+```
+
+*Heat Streams*
+
+```{rosmose Furnace_hs}
+: OSMOSE HEAT_STREAMS Furnace
+
+|name       |Tin   |Tout    |Hin            |Hout               |DT min/2           |alpha|
+|:----------|:-----|:-------|:--------------|:------------------|:------------------|:----|
+|radiation  |%Trad%|%Trad%  |%Q_radpreh%    |0                  |%dtmin_radiation%  |1    |
+|convection |%Trad%|%Tstack%|%Q_conv_gross% |0                  |%dtmin_convection% |1    |
+|preheating |%To%  |%Tprin% |0              |%Q_preh%           |%dtmin_convection% |1    |
+```
+
+
+## Visualization of Furnace {-}

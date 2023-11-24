@@ -1,0 +1,507 @@
+```{r setup rosmose, warning = F, results = "hide", message=F, eval=T, echo=F}
+source("./use-venv.R", local = knitr::knit_global())
+```
+# Thermodynamic properties calculation
+
+
+## Coolprop library for Python in Quarto
+
+Coolprop is a C++ library that implements pure and pseudo-pure fluid equations of state and transport properties for 122 components, with fully-featured wrappers for Python and MATLAB, among other languages. It works in 32/64-bit distributions of Windows, in Linux, OSX, Raspberry PI, etc. 
+
+A very simple code in Python used to calculate the density D of Nitrogen at a temperature T of 298 K and a pressure P of 101325 Pa using Coolprop is shown next:
+
+```{python, echo = T, eval = T}
+from CoolProp.CoolProp import PropsSI
+rho = PropsSI('D', 'T', 298.15, 'P', 101325, 'Nitrogen')
+```
+
+However, even if the previous chunk could be used to determine, one by one, each thermodynamic property of a long list of substances, the verbosity ends up impairing the readability of the calculation procedure, as well as leading to syntax errors and debugging difficulties. 
+
+
+## The State class: all the thermodynamic properties in one Python object
+
+For the sake of clarity, it has been provided a class named `State`, which can be "instantiated" by passing specific arguments to calculate a set of relevant thermodynamic properties of pure substances in just few steps. The calculated values of those properties are assigned to a friendly Python “dictionary”. 
+
+The class is internally implemented; thus it just needs to be instantiated. However, in order to understand how the `State` class function works, the full code is described below. You can find the state.py file in a directory similar to `\venv\Lib\site-packages\pyxosmose` (CAUTION: do not confuse the State class with the CoolProp.State module described in [here](http://www.coolprop.org/py-modindex.html))
+
+
+```{python, echo = T, eval = T}
+
+from CoolProp.CoolProp import PropsSI
+
+class State():
+
+    def __init__(self, pair,fluid='Water',temperature=-1.0,pressure=-1.0,density=-1.0, cpmass=-1.0,cvmass=-1.0, enthalpy=-1.0,entropy=-1.0, vapfrac=-1.0):
+        ########### Define the relevant properties
+        self.pair = pair
+        self.fluid = fluid
+        self.temperature = temperature
+        self.pressure = pressure
+        self.density = density
+        self.cpmass = cpmass
+        self.cvmass = cvmass
+        self.enthalpy = enthalpy
+        self.entropy = entropy
+        self.vapfrac = vapfrac
+        #self.Other = Others
+
+    def StateCalc(self):
+        if self.pair == 'TP': # Calculate only for TP
+            try:
+                if PropsSI('Q', 'T', self.temperature, 'P', self.pressure, self.fluid) < 0:
+                    self.vapfrac = PropsSI('Q', 'T', self.temperature, 'P', self.pressure, self.fluid)
+                    self.enthalpy = PropsSI('H', 'T', self.temperature, 'P', self.pressure, self.fluid)
+                    self.entropy = PropsSI('S', 'T', self.temperature, 'P', self.pressure, self.fluid)
+                    self.density = PropsSI('D', 'T', self.temperature, 'P', self.pressure, self.fluid)
+                    self.cpmass = PropsSI('Cpmass','T', self.temperature, 'P', self.pressure, self.fluid)
+                    self.cvmass = PropsSI('Cvmass', 'T', self.temperature, 'P', self.pressure, self.fluid)
+                    ########## self.Others = PropsSI('Others', 'T', self.temperature, 'P', self.pressure, self.fluid)
+                    ########## Other properties come here
+            except ValueError:
+                print('Saturation pressure and temperature are dependent. Select another pair (e.g. PQ, PH, etc.)')
+
+        else: # Calculate for other pair than TP but without Q in pair
+            if self.pair == 'TD':
+                self.pressure = PropsSI('P','T',self.temperature,'D',self.density,self.fluid)
+                self.enthalpy = PropsSI('H', 'T', self.temperature, 'D', self.density, self.fluid)
+            elif self.pair == 'TH':
+                self.pressure = PropsSI('P','T',self.temperature,'H',self.enthalpy,self.fluid)
+                self.enthalpy = PropsSI('H', 'T', self.temperature, 'H', self.enthalpy, self.fluid)
+            elif self.pair == 'TS':
+                self.pressure = PropsSI('P','T',self.temperature,'S',self.entropy,self.fluid)
+                self.enthalpy = PropsSI('H', 'T', self.temperature, 'S', self.entropy, self.fluid)
+            elif self.pair == 'PD':
+                self.temperature = PropsSI('T', 'P', self.pressure, 'D', self.density, self.fluid)
+                self.enthalpy = PropsSI('H', 'P', self.pressure, 'D', self.density, self.fluid)
+            elif self.pair == 'PH':
+                self.temperature = PropsSI('T', 'P', self.pressure, 'H', self.enthalpy, self.fluid)
+                self.enthalpy = PropsSI('H', 'P', self.pressure, 'H', self.enthalpy, self.fluid)
+            elif self.pair == 'PS':
+                self.temperature = PropsSI('T', 'P', self.pressure, 'S', self.entropy, self.fluid)
+                self.enthalpy = PropsSI('H', 'P', self.pressure, 'S', self.entropy, self.fluid)
+            elif self.pair == 'DH':
+                self.pressure = PropsSI('P', 'D', self.density, 'H', self.enthalpy, self.fluid)
+                self.temperature = PropsSI('T', 'D', self.density, 'H', self.enthalpy, self.fluid)
+            elif self.pair == 'DS':
+                self.pressure = PropsSI('P', 'D', self.density, 'S', self.entropy, self.fluid)
+                self.temperature = PropsSI('T', 'D', self.density, 'S', self.entropy, self.fluid)
+                self.enthalpy = PropsSI('H', 'P', self.pressure, 'S', self.entropy, self.fluid)
+            elif self.pair == 'HS':
+                self.pressure = PropsSI('P', 'H', self.enthalpy, 'S', self.entropy, self.fluid)
+                self.temperature = PropsSI('T', 'H', self.enthalpy, 'S', self.entropy, self.fluid)
+
+            elif self.pair == 'TQ':  # verify that Q is in the correct range.
+                if self.vapfrac < 0:
+                    print('The vapor fraction cannot be negative, verify input to TQ')
+                elif self.vapfrac <=1:
+                    self.pressure = PropsSI('P', 'T', self.temperature, 'Q', self.vapfrac, self.fluid)
+                    self.enthalpy = PropsSI('H', 'T', self.temperature, 'Q', self.vapfrac, self.fluid)
+                else:
+                    print('The vapor fraction must be lower or equal than 1, verify input to TQ')
+
+            elif self.pair == 'PQ':  # verify that Q is in the correct range.
+                if self.vapfrac < 0:
+                    print('The vapor fraction cannot be negative, verify input to PQ')
+                elif self.vapfrac <=1:
+                    self.temperature = PropsSI('T', 'P', self.pressure, 'Q', self.vapfrac, self.fluid)
+                    self.enthalpy = PropsSI('H', 'P', self.pressure, 'Q', self.vapfrac, self.fluid)
+                else:
+                    print('The vapor fraction must be lower or equal than 1, verify input to PQ')
+
+            elif self.pair == 'DQ':  # verify that Q is in the correct range.
+                if self.vapfrac < 0:
+                    print('The vapor fraction cannot be negative, verify input to DQ')
+                elif self.vapfrac <=1:
+                    self.pressure = PropsSI('P', 'D', self.density, 'Q', self.vapfrac, self.fluid)
+                    self.temperature = PropsSI('T', 'D', self.density, 'Q', self.vapfrac, self.fluid)
+                    self.enthalpy = PropsSI('H', 'D', self.density, 'Q', self.vapfrac, self.fluid)
+                else:
+                    print('The vapor fraction must be lower or equal than 1, verify input to DQ')
+
+            elif self.pair == 'HQ': # verify that Q is in the correct range.
+                if self.vapfrac < 0:
+                    print('The vapor fraction cannot be negative, verify input to HQ')
+                elif self.vapfrac <=1:
+                    self.pressure = PropsSI('P', 'H', self.temperature, 'Q', self.vapfrac, self.fluid)
+                    self.temperature = PropsSI('T', 'H', self.temperature, 'Q', self.vapfrac, self.fluid)
+                else:
+                    print('The vapor fraction must be lower or equal than 1, verify input to HQ')
+
+            elif self.pair == 'SQ': # verify that Q is in the correct range.
+                if self.vapfrac < 0:
+                    print('The vapor fraction cannot be negative, verify input to SQ')
+                elif self.vapfrac <=1:
+                    self.pressure = PropsSI('P', 'S', self.entropy, 'Q', self.vapfrac, self.fluid)
+                    self.temperature = PropsSI('T', 'S', self.entropy, 'Q', self.vapfrac, self.fluid)
+                    self.enthalpy = PropsSI('H', 'S', self.entropy, 'Q', self.vapfrac, self.fluid)
+                else:
+                    print('The vapor fraction must be lower or equal than 1, verify input to SQ')
+
+            self.entropy = PropsSI('S', 'P', self.pressure, 'H', self.enthalpy, self.fluid)
+            self.density = PropsSI('D', 'P', self.pressure, 'H', self.enthalpy, self.fluid)
+            self.vapfrac = PropsSI('Q', 'P', self.pressure, 'H', self.enthalpy, self.fluid)
+            self.cpmass = PropsSI('Cpmass', 'T', self.temperature, 'P', self.pressure, self.fluid)
+            self.cvmass = PropsSI('Cvmass', 'T', self.temperature, 'P', self.pressure, self.fluid)
+```
+
+
+As it can be seen, the `State` class takes few number of arguments. The first is a `pair`, i.e. two thermodynamically independent intensive  properties (**tiip**) used to calculate the remaining ones. It also receives a `fluid`argument, which has a default value of 'Water'. Other arguments, such as `temperature` (K), `pressure` (Pa), ``density` (kg/m3), `cpmass` (J/kgK), `cvmass` (J/kgK), `enthalpy` (J/kmol), `entropy` (J/kgK), and `vapfrac` (unitless) can be specified depending on the selected pair. Those arguments are initialized to -1 in the constructor method (`def __init__`). 
+
+Given a pair and the two **tiip** values, the remaining thermodynamic properties are calculated using the class method (`StateCalc`), which retrieves the values of all the thermodynamic properties in a Python dictionary that looks like this:
+
+
+```json
+{'pair': 'TP', 'fluid': 'Water', 'temperature': 343.1, 'pressure': 31000, 'density': 0.19717332071922414, 'cpmass': 1985.5161732476188, 'cvmass': 1493.177318231682, 'enthalpy': 2626038.233757627, 'entropy': 7756.790454616603, 'vapfrac': -1.0}
+```
+
+Note that the vapor fraction is undefined outside the saturation region and, thus it is reported as -1 (vapor fraction falls by definition within 0 and 1). A full list of the aliases of the fluids available in Coolprop can be found [here](http://coolprop.org/fluid_properties/PurePseudoPure.html#list-of-fluids) and a list of other properties not specified by the `State` class is shown [here](http://coolprop.org/coolprop/HighLevelAPI.html). In fact, with a little effort, any other property could be included in the ``State` class (see the annotation `#self.Other = Others`) and, therefore, it could be used and reported as any other variable.
+
+
+The 'instantiation' of the `State` class and the retrieval of the thermodynamic properties is as simple as executing the following code (NOTE: in the following code, `State` is a class, `State1` is a dictionary, and `Point1` is an instance/object of `State` class):
+
+```{python, echo = T}
+from pyxosmose.state import State
+# First, define the thermodynamic point,
+Point1 = State(pair='TP', fluid='Water', temperature=340, pressure=31000)
+# Then calculate the state using the State class method StateCalc
+Point1.StateCalc()
+# And print the dictionary for revision
+State1 = Point1.__dict__ # Whole dictionary with properties
+print(State1) 
+print("The enthalpy of the water is (J/kg): ", Point1.enthalpy)
+h1 = Point1.enthalpy # Point.enthalpy is equivalent to State1["enthalpy"]
+```
+
+
+Additional Python functions are helpful for calculating ideal mixtures of real substances based on their mass fraction:
+
+```{python, echo = T}
+from pyxosmose.state import State
+
+def mixture(T=298, P=101325, frac_water=0.89, frac_fat=0.11):
+  
+  # call Coolprop
+  state1 = State(pair='TP',fluid='Water',temperature=T,pressure=P)
+  state2 = State(pair='TP',fluid='MethylLinolenate',temperature=T,pressure=P)
+  
+  state1.StateCalc()
+  state2.StateCalc()
+  
+  # ideal mixture
+  state_mix = {}
+  state_mix['fluid'] = 'water[' + str(frac_water) + ']&fat[' + str(frac_fat) + ']'
+  
+  for key in ['density', 'cpmass', 'cvmass', 'enthalpy', 'entropy']:
+    state_mix[key] = frac_water * getattr(state1, key) + frac_fat * getattr(state2, key)
+  return state_mix
+```
+
+
+
+An example of using the `mixture` function is shown below. Note that it produces not an object of `State` class, but a dictionary (`State2`) with the same keys as the attributes of the `State` class:
+
+```{python, echo = T}
+from codes_01_energy_bill.coolprop_functions import mixture
+
+State2=mixture(frac_water=0.8, frac_fat=0.2) # this is a dictionary!!
+print(State2)
+h2 = State2["enthalpy"]
+```
+
+
+## Saving data into and retrieving data from a JSON file
+
+The data gathered throughout all the calculations could be dumped into a JSON file, called e.g. `MyJsonFile.json`, using the `save_states` function. Data is stored in JSON format so that it could be used in other parts of the report. Data in the JSON file can be retrieved using other function called `load_states`:
+
+
+```{python, echo = T}
+import json
+def save_states(states, json_name='MyJsonFileDefault'): #MyJsonFileDefault is just a default argument
+  with open('codes_01_energy_bill/results/' + json_name + '.json', 'w') as f:
+    json.dump(states, f)
+  return
+      
+def load_states(path='codes_01_energy_bill/results/MyJsonFileDefault.json'):
+  with open(path, 'r') as f:
+    data = json.loads(f.read())
+  return data
+```
+
+
+An example of utilization of these functions is shown below:
+
+
+
+Saving data into the JSON
+```{python, echo = T}
+
+MyStates_list = {"MyState1": Point1.__dict__, "MyState2": State2, "enthalpy1": h1, "enthalpy2": h2}
+save_states(MyStates_list, 'MyJsonFile')
+```
+
+
+Retrieving data from a JSON file:
+```{python, echo = T}
+
+data = load_states('codes_01_energy_bill/results/MyJsonFile.json')
+print(data) # it is a dictionary of dictionaries and other key:value objects
+```
+
+
+
+## Using State function together with other Python libraries for solving systems of equations
+
+The power of Python and Coolprop could be combined with other programming libraries such as `numpy` and `scipy` to solve systems of equations, which can in practice be mass and energy balances (NOTE: verify if `scipy` package is installed before using this chunk, see the last section of this tutorial to install new Python libraries in the virtual environment):
+
+```{python, echo = T, eval= T}
+# Example of how to use the State class for calculating properties and solving systems of non-linear equations
+
+import numpy
+import scipy
+from scipy.optimize import fsolve
+from pyxosmose.state import State
+
+mystate1 = State(pair='TP',fluid='air',temperature=298,pressure=101325)
+mystate1.StateCalc()
+
+#print(mystate1.__dict__)
+h1 = mystate1.enthalpy
+s1 = mystate1.entropy
+#print('Enthalpy of state 1: ', h1, 'Entropy of state 1: ', s1)
+P2s = 300000
+mystate2s = State(pair='PS',fluid='air',pressure=P2s,entropy=s1)
+mystate2s.StateCalc()
+#print(mystate2s.__dict__)
+eff = 0.8
+#print('Enthalpy of state 2s: ', mystate2s.enthalpy)
+
+
+def equations(vars):
+    h2s, h2a = vars
+    
+    #equations
+    eq1 = h2s-h1-eff*(h2a-h1)
+    eq2 = h2s-mystate2s.enthalpy
+    return eq1, eq2
+
+
+seeds = numpy.array([100000, 100000])
+[h2s, h2a] = fsolve(equations, seeds)
+
+
+print('These are the solutions',[h2s, h2a])
+
+print('Checking residuals:',equations([h2s, h2a]))
+
+print('This is h1: ',h1, ' and this is h2s: ',h2s)
+```
+
+This is another example of how to use directly Coolprop for calculating properties and solving systems of linear equations
+
+
+```{python, echo = T, eval= T}
+
+from CoolProp.CoolProp import PropsSI
+
+def equations(vars):
+    #variables
+    h1, s1, h2a, h2s = vars # the variables are pre-declared here, meaning that they come from external information
+    #parameters
+    P1 = 101325 #bar
+    T1 = 298 #K
+    P2s = 300000 #bar
+    eff = 0.8
+    #equations
+    eq1 = h1 - PropsSI('H', 'T', T1, 'P', P1, 'air')
+    eq2 = s1 - PropsSI('S', 'T', T1, 'P', P1, 'air')
+    eq3 = h2s - PropsSI('H', 'P', P2s, 'S', s1, 'air')
+    eq4 = h2s - h1 - eff * (h2a - h1)
+    
+    return eq1, eq2, eq3, eq4 
+
+
+    seeds = numpy.array([0,0,0,0])
+    h1, s1, h2a, h2s = fsolve(equations, seeds)
+
+
+print('This are the solutions: ', [h1, s1, h2a, h2s])
+print('Checking residuals:', equations([h1, s1, h2a, h2s]))
+```
+
+
+
+## Citation of Coolprop software
+
+Naturally, Coolprop is the result of the intellectual effort of researchers and programmers, and thus it needs to be cited properly if used. The bibtex citation for Coolprop suggested in its website is:
+
+```
+@article{doi:10.1021/ie4033999,
+    author = {Bell, Ian H. and Wronski, Jorrit and Quoilin, Sylvain and Lemort, Vincent},
+    title = {Pure and Pseudo-pure Fluid Thermophysical Property Evaluation and
+             the Open-Source Thermophysical Property Library CoolProp},
+    journal = {Industrial \& Engineering Chemistry Research},
+    volume = {53},
+    number = {6},
+    pages = {2498--2508},
+    year = {2014},
+    doi = {10.1021/ie4033999},
+    URL = {http://pubs.acs.org/doi/abs/10.1021/ie4033999},
+    eprint = {http://pubs.acs.org/doi/pdf/10.1021/ie4033999}
+    }
+```
+
+
+## Other examples using Python in Quarto's Reticulate
+
+Python and R objects can be used interchangeably thanks to an R library called Reticulate:
+
+An R variable
+
+```{r, echo = T}
+library(reticulate)
+x = 42
+print(x)
+```
+
+In the following chunk, the value of `x` on the right hand side
+is `r x`, which was defined in the previous chunk.
+
+```{r, echo = T}
+x = x + 12
+print(x)
+```
+
+This works fine and as expected. 
+
+```{python, echo = T}
+x = 42 * 2
+print(x) 
+```
+
+The value of `x` in the Python session is `py$x`.
+It is not the same `x` as the one in R.
+
+```{python, echo = T}
+x = x + 18 
+print(x)
+```
+
+Retrieve the value of `x` from the Python session again:
+
+```{r, echo = T}
+py$x
+```
+
+Assign to a variable in the Python session from R:
+
+```{r, echo = T}
+py$y = 1:5
+```
+
+See the value of `y` in the Python session:
+
+```{python, echo = T}
+print(y)
+```
+
+## Graphical representations using Python
+
+You can draw plots using the **matplotlib** library in Python (NOTE: if you get an error using MatPlotLib, check [this](https://stackoverflow.com/questions/29320039/python-tkinter-throwing-tcl-error) out).
+
+```{python, echo = T, eval = T}
+import matplotlib.pyplot as plt
+plt.switch_backend('agg')
+plt.plot([0, 2, 1, 4])
+plt.show()
+```
+
+
+As it can be seen, Python is not only used to retrieve thermodynamic properties using the Coolprop library, but could be also used to plot more elaborated plots, such as the Composite Curves (CC) of the studied systems.
+
+
+```{python, echo = T, eval = T}
+import matplotlib.pyplot as plt
+import json
+import numpy as np
+
+plt.switch_backend('agg')
+
+# read json for heat integration data
+file_name = open('codes_02_heat_recovery/result/dairy-1.json')
+integ = json.loads(file_name.read())
+
+# we used .keys() and json-reader to locate the data of interest (hot and cold composite curves)
+hotcc = integ["results"]["graph"][0][0][1]["data"][0]["curve"]
+coldcc = integ["results"]["graph"][0][0][1]["data"][1]["curve"]
+
+# extract the temperature (T in Kelvin) and heat (Q in kW)
+T_hc = [i["T"] for i in hotcc]
+Q_hc = [i["Q"] for i in hotcc]
+T_cc = [i["T"] for i in coldcc]
+Q_cc = [i["Q"] for i in coldcc]
+
+# compute the shifted carnot factor (1 - T0/T) and Treference = 298.15K
+Tref = 298.15 
+ca_hc = [(1-Tref/i) for i in T_hc]
+ca_cc = [(1-Tref/i) for i in T_cc]
+
+# compute back the original carnot factors given a deltaT_min
+deltaT_min = 5
+T_hc_ori = [(i+deltaT_min/2) for i in T_hc]
+T_cc_ori = [(i-deltaT_min/2) for i in T_cc]
+ca_hc_ori = [(1-298.15/i) for i in T_hc_ori]
+ca_cc_ori = [(1-298.15/i) for i in T_cc_ori]
+
+# prepare the second y-axis for plotting
+# the minim carnot value is extracted from the original cooling. Round it to the lowest .0
+# the maximum carnot carnot value is extracted from the original heating. Round it to the highest .0
+ca_min = round(min(ca_cc_ori) - 0.05, 1)
+ca_max = round(max(ca_hc_ori) + 0.05, 1)
+# generate an array with the carnot list from min to max
+ca_values = np.arange(ca_min, ca_max, 0.2)
+# compute the corresponding temperature values in celcius
+Tref_ce = 298.15
+T_ce = [int(Tref_ce/(1-i) - 273.15) for i in ca_values]
+
+# plot the composite curves
+figure, ax = plt.subplots(figsize = (8,6))
+
+# both cold curves (blue): dashed --> shifted, solid --> original
+ax.plot(Q_cc, ca_cc, "--b")
+ax.plot(Q_cc, ca_cc_ori, "-b")
+# both hot curves (red): dashed --> shifted, solid --> original
+ax.plot(Q_hc, ca_hc, "--r")
+ax.plot(Q_hc, ca_hc_ori, "-r")
+# fill the area between the original and shifted curves
+ax.fill_between(Q_cc, ca_cc_ori, ca_cc, color="blue", alpha=0.25)
+ax.fill_between(Q_hc, ca_hc, ca_hc_ori, color="red", alpha=0.25)
+
+# add the lables and title
+ax.set_xlabel('$Heat \ Load \ (kW)$', labelpad=12)
+ax.set_ylabel('$Carnot \ Factor \ (1 - T_{0}/T)$')
+ax.set_title('$System \ Heat \ Integration$')
+ax.legend(["Corrected Cold Composite Curve", "Cold Composite Curve", "Corrected Hot Composite Curve", "Hot Composite Curve"])
+ax.set_ybound(ca_min, ca_max)
+
+# secondary axis. In this case we don't plot anything, we simply set the secondary axis ticks
+ax2 =ax.twinx()
+ax2.set_yticks(np.arange(0, len(T_ce), 1), T_ce)
+ax2.set_ylabel('$Temperature \ (\u00b0C)$', labelpad=10)
+
+plt.show()
+
+# save the plot as a png
+figure.savefig("composite_curves.png", format="png", dpi=600)
+```
+
+
+## How to install libraries that are not yet installed
+
+
+Lastly, if Coolprop or any other library is not installed yet or needs to be updated, use the following command to avoid installation outside of the venv, i.e. to force the installation in the target directory. First, open a cmd console in the Scripts folder, where is the pip.exe. Then type the following command pointing to the `lib/site-packages` of the respective venv:
+
+
+`pip install scipy -t "D:\brewery_process-main\venv\Lib"` (use your path)
+
+This command should install the missing Python libraries in the targeted folder of the virtual environment
+

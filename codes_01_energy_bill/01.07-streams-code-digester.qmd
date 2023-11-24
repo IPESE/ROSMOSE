@@ -1,0 +1,243 @@
+```{r}
+path <- file.path('../venv/bin/python3.10')
+library(reticulate)
+use_python(path)
+```
+
+
+# Mass and Energy Balance Calculations
+
+## Anaerobic treatment section
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+import math
+
+#Whey stream characterization (competing products)
+
+M_whey = M_c4 + M_e22
+DM_whey = (M_c4*DM_c4 + M_e22*DM_e22)/M_whey
+T_whey = 25 + 273.15
+P_whey = 101325
+whey = mixture (frac_water=1-DM_whey, frac_fat=DM_whey, T= T_whey, P=P_whey)
+
+#Anaerobic digester 
+M_d1 = M_c4 + M_e22 + M_dw3
+DM_d1 = (DM_c4*M_c4 + DM_e22*M_e22+ DM_dw3*M_dw3)/M_d1
+T_d1 = 20+273.15
+P_d1 = 101325
+d1 = mixture (frac_water=1-DM_d1, frac_fat=DM_d1, T= T_d1, P=P_d1)
+print (M_d1, DM_d1, T_d1, P_d1, d1)
+
+#considering 90% conversion for a residence time of 20 days for the anaerobic digester (1.728x10^6 seconds) solving this equation for k (the kinetic constant) $Biogas (t) = [Biowaste]_0 (1-e^{-kt})$ 
+
+t = 20 #days, residence time of 20 days according to Holliger et. al
+k = -math.log(0.1)/t #day^-1 
+
+print("the kinetic constant for this process is:", k,"days^-1.")
+
+#next biogas flowrate is calculated using the equation $Bio-methane (t) = \sum_{i=1}^{n} Flow(i) BMP(i) TS(i) VS(i) (1-e^{-k_it})$ 
+
+biogas_density = 1.15 #kg/m3 (https://www.intechopen.com/chapters/62959)
+biogas_methane = 0.55 #biogas methane content 55%
+#whey
+BMP_whey = 526 #NLCH4/kg_vs, this refers to the volume of methane produced per kg VS hence should be corrected using methane fraction to volume of biogas 
+
+TS_whey = 0.077
+VS_whey = 0.514
+
+#sludge
+BMP_sludge = 407 #NLCH4/kg_vs
+TS_sludge = 0.037 
+VS_sludge = 0.742
+
+
+M_biomethane = ((M_c4 + M_e22)*BMP_whey*biogas_density*TS_whey*VS_whey*(1-math.exp(-k*t)))/1000 + (M_dw3*biogas_density*BMP_sludge*TS_sludge*VS_sludge*(1-math.exp(-k*t)))/1000
+M_biogas = M_biomethane/0.55
+M_d3 = M_biogas 
+V_biogas = M_biogas*biogas_density  #m3/s
+T_d3 = 55+273.15
+P_d3 = 101325
+
+M_d2 = M_d1 - M_d3
+DM_d2 = DM_d1*M_d1/M_d2
+T_d2 = 55+273.15
+P_d2 = 101325
+d2 = mixture (frac_water=1-DM_d2, frac_fat=DM_d2, T= T_d2, P=P_d2)
+
+print (M_d3, M_d2, DM_d2, d2)
+
+
+HRT = t #hydraulic retention time of the slurry (feed biomass) corresponds to the residence time 20 days
+
+V_slurry = (M_d1*3600*24)/(d1["density"])
+
+print (V_slurry)
+
+V_digester = V_slurry*HRT*1.15 # to allow for 15% gas expansion
+
+gasification_ratio = M_d3/M_d1 
+
+print("Volume of the anaerobic digester is: ", V_digester, "m^3.")
+print ("gasification ratio of biogass produced to biomass feedstock is:", gasification_ratio, "kg/kg.")
+
+D_digester = ((4*V_digester)/(math.pi*0.6))**(1./3.)
+H_digester = 0.6*D_digester
+
+A_digester = math.pi*D_digester*H_digester + 0.5*math.pi*D_digester**(2.)
+U_digester = 2.5 #W/m2°C,,,, Q_digester = U*A*deltaT
+T_digester = 55+273.15
+T_external = 20+273.15
+Q_digester = U_digester*A_digester*(T_digester-T_external)
+M_steam_digester = Q_digester / hlv
+
+print("Heat needed to maintain thermophilic process conditions at 55°C is:", Q_digester/1000, "kW.")
+
+
+
+```
+
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+import math
+
+# Rotary filter
+
+DM_d5 = 0.5 #water content of dewatered sludge 50%
+#assume rotary filter efficiency of 99.5%
+M_d5 = (M_d2*DM_d2*0.995)/DM_d5
+M_d4 = M_d2 - M_d5
+DM_d4 = (M_d2*DM_d2 - M_d5*DM_d5)/M_d4
+T_d5 = T_d2
+P_d5 = P_d2
+T_d4 = T_d2
+P_d4 = P_d2
+d4 = mixture (frac_water=1-DM_d4, frac_fat=DM_d4, T= T_d4, P=P_d4)
+d5 = mixture (frac_water=1-DM_d5, frac_fat=DM_d5, T= T_d5, P=P_d5)
+
+LHV_biogas = 22.2*1e+6/biogas_density #LVH= 22.2 MJ/m3 conversion to J/kg
+
+d3_enthalpy = LHV_biogas
+DM_d3 = 0
+d3 = {"fluid": "biogas(55%CH&45%CO2)", "Temperature": T_d3, "Pressure": P_d3, "enthalpy": d3_enthalpy }
+
+print ("Biowaste feed:", M_d1, DM_d1, d1,"Unconverted digestate: ", M_d2, DM_d2,d2 ,"Biogas: ",M_d3, DM_d3, d3, "Dewatered sludge: ",M_d5, DM_d5, d5,"Wastewater: ", M_d4, DM_d4, d4)
+
+
+#Steam dryer
+
+DM_d6 = 0.95 #dried digestate leaves at 5wt% water content
+M_d6 = M_d5*DM_d5/DM_d6
+T_d6 = 95 + 273.15
+P_d6 = 101325
+d6 = mixture (frac_water=1-DM_d6, frac_fat=DM_d6, T= T_d6, P=P_d6)
+water_evap_steamdryer = M_d5*(1-DM_d5) - M_d6*(1-DM_d6)
+
+T_d8 = 115+273.15 #assume steam leaves as slightly superheated at 1 bar
+
+hlv_1bar = 2403250 #J/kg
+Cp_water = 4200 #J/kg
+
+Q_steamdryer = water_evap_steamdryer*(hlv_1bar + Cp_water* (T_d8-T_d5)) + M_d6*d6["cpmass"]*(T_d6-T_d5) 
+
+
+T_d7 = 150.0 + 273
+P_d7 = 101325
+d7 = State(pair='TP',fluid='Water',temperature=T_d7,pressure=P_d7)
+d7.StateCalc()
+print(d7.__dict__)
+
+P_d8 = 101325
+d8 = State(pair='TP',fluid='Water',temperature=T_d8,pressure=P_d8)
+d8.StateCalc()
+print(d8.__dict__)
+
+hss = d7.enthalpy - d8.enthalpy
+M_d7 = Q_steamdryer / hss
+M_d8 = M_d7 + water_evap_steamdryer
+
+
+print ("The heat load of the steam dryer is: ", round(Q_steamdryer/1000,2), "kW","This requires:", round( M_d7,2), "kg/s of superheated steam that can evaporate the excess water content, heat the solid digestate to 95°C, and still leave as a slightly superheated stream")
+````
+```{python}
+
+Q_steamdryer_deltaT = water_evap_steamdryer*Cp_water* (T_d8-T_d5) + M_d6*d6["cpmass"]*(T_d6-T_d5)
+Q_steamdryer_evap = water_evap_steamdryer*hlv_1bar
+
+Q_deltaT_whey = M_d6*d6["cpmass"]*(95-55)
+
+Q_deltaT_water = water_evap_steamdryer*Cp_water*(T_d8-T_d5)
+
+print(Q_deltaT_whey/1000, Q_deltaT_water/1000, Q_steamdryer_evap/1000, Q_steamdryer/1000 )
+```
+
+
+```{python, eval=F}
+import json
+filename = 'results/scenario1.json'
+entry = {'d1': d1, 'd2':d2, 'd3':d3,'d4':d4,'d5':d5, 'd6':d6,'d7':d7.__dict__,'d8':d8.__dict__}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+
+
+```{python, eval=F}
+import json
+filename = 'results/energy_bill.json'
+entry = {'Q_digester': Q_digester, 'Q_steamdryer': Q_steamdryer}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+
+```{python, eval=F}
+import json
+filename = 'results/utility.json'
+entry = {'M_steam_digester': M_steam_digester, 'M_superheatedsteam_dryer': M_d7}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/streams.json'
+entry = {'T_d1': T_d1, 'T_d2':T_d2, 'T_d3':T_d3,'T_d4':T_d4,'T_d5':T_d5, 'T_d6':T_d6,'T_d7':T_d7,'T_d8':T_d8, 'P_d1': P_d1, 'P_d2':P_d2, 'P_d3':P_d3,'P_d4':P_d4,'P_d5':P_d5, 'P_d6':P_d6,'P_d7':P_d7,'P_d8':P_d8, 'M_d1': M_d1, 'M_d2':M_d2, 'M_d3':M_d3,'M_d4':M_d4,'M_d5':M_d5, 'M_d6':M_d6,'M_d7':M_d7,'M_d8':M_d8, "V_digester": V_digester, "gasification_ratio":gasification_ratio}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```

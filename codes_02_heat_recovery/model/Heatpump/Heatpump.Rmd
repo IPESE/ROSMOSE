@@ -1,0 +1,87 @@
+# Heat Pump {-}
+
+```{rosmose heatpump-et}
+! OSMOSE ET heatpump
+```
+
+
+```{rosmose} 
+Evap_Tin = 54.5 [C] # Evaporator temperature inlet
+Evap_Tout = 54.5 [C] # Evaporator temperature outlet
+Cond_Tin = 76.5 [C] # Condenser temperature inlet
+Cond_Tout = 76.5 [C] # Condenser temperature outlet
+Cond_Qmax = 6000 [kW] # Condenser reference heat flow rate
+exeff = 0.5 [-] # Second law efficiency
+dtmin_2ph = 2 [C] # phase-change delta t minimum
+n = 40.0 [yr] #lifetime of a heat pump
+i = 0.06 [-] #interest rate
+CEPCI_2020 = 596.2 [-] # actual CEPCI
+CEPCI_2008 = 575.4 [-] # CEPCI 2008
+```
+
+Note: Heat pumping will be profitable only if it allows to transfer heat from below to above the pinch, i.e., if it transforms excess heat from the system heat source into useful heat for the system heat sink.
+
+```{rosmose} 
+COPcarnot = (%Cond_Tin% + 273) / (%Cond_Tin% - %Evap_Tin%) [-] # Carnot COP 
+COP = %exeff% * %COPcarnot% [-] # Actual COP
+W_heatpump = %Cond_Qmax% / %COP% [kW] # Heat pump power consumption
+Evap_Qmax = %Cond_Qmax% * (%COP% - 1) / %COP% [kW] # Evaporator heat flow rate
+Annuity = (%i%*(1+%i%)**%n%)/((1+%i%)**%n%-1) [-] #annualization factor
+Cinv2_HP = 300*%Cond_Qmax%*(%CEPCI_2020%/%CEPCI_2008%)*%Annuity% [Euro/y] #300 Euro/kWth at the condenser
+```
+
+**Layers of the Heat Pump ET**
+
+```{rosmose} 
+: OSMOSE LAYERS heatpump
+
+|Layer      |Display name   |shortname  |Unit       |Color  |
+|:----------|:--------------|:----------|:----------|:------|
+|ELEC       |Electricity    |elec       |kW         |yellow |
+```
+
+**Heat Pump unit of the Heat pump ET**
+
+```{rosmose} 
+: OSMOSE UNIT heatpump
+
+|unit name  |type     |
+|:----------|:--------|
+|HeatPump   |Utility  |
+```
+
+**Parameters of the Heat Pump unit**
+
+```{rosmose heatpump_params}
+: OSMOSE UNIT_PARAM HeatPump
+
+|cost1  |cost2  |cinv1  |cinv2      |imp1   |imp2   |fmin   |fmax   |
+|:------|:------|:------|:----------|:------|:------|:------|:------|
+|0      |0      |0      |%Cinv2_HP% |0      |0      |0      |10     |
+```
+
+**Heat pump Streams**
+
+*Resource Streams*
+Defining the resource streams, in this case electricity to the heatpump
+
+```{rosmose HeatPump_rs}
+: OSMOSE RESOURCE_STREAMS HeatPump
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|ELEC       | in      |%W_heatpump%         |
+```
+
+*Heat Streams*
+
+```{rosmose HeatPump_hs}
+: OSMOSE HEAT_STREAMS HeatPump
+
+|name           |Tin        |Tout       |Hin        |Hout       |DT min/2   |alpha|
+|:--------------|:----------|:----------|:----------|:----------|:----------|:----|
+|evaporation    |%Evap_Tin% |%Evap_Tout%|0          |%Evap_Qmax%|%dtmin_2ph%|1    |
+|condensation   |%Cond_Tin% |%Cond_Tout%|%Cond_Qmax%|0          |%dtmin_2ph%|1    |
+```
+
+## Visualization of Heat Pump {-}

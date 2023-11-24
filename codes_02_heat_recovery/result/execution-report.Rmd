@@ -1,0 +1,433 @@
+```{r setup-report, include=FALSE, echo=FALSE}
+source("https://ipese-internal.epfl.ch/osmose/report-setup.R")
+```
+```{r, Base variables, echo=F, eval=T}
+df_colors       <- read.csv2("layer_colors.csv",colClasses = "character", sep = ",")
+scenario      <- 1 # TODO: insert in loop for child document
+data            <- fromJSON("<<YOUR-JSON-FILE>>.json", flatten=FALSE)
+n_timesteps    <- length(data$evaluated[[scenario]]$time)
+n_scenarios     <- length(data$results$KPIs[[1]]) # TODO: check with length(data$evaluated)
+```
+
+# Osmose Execution Report {-}
+
+This is a report of the Osmose simulation
+
+Objective Optimizing : _`r data$results$solvers$hc$"_objname"`_ <br>
+opex: `r data$results$KPIs$opex`  <br>
+capex: `r data$results$KPIs$capex`  <br>
+impact: `r data$results$KPIs$impact` <br>
+
+Total cost: **`r data$results$KPIs$totalcost`** <br>
+Operating cost with impact: **`r data$results$KPIs$opcostwithimpact`** <br>
+Total cost with impact: **`r data$results$KPIs$totalcostwithimpact`** <br>
+Total investment cost : **`r data$result$KPIs$totalinvestmentcost`** <br>
+
+Number of time steps: _`r n_timesteps`_
+
+
+```{r Key Performance Indicator, echo=FALSE, eval = TRUE}
+kpi <- data$results$KPIs
+kpi_scenarios <- data.frame(data$results$KPIs[c("opex", "capex")]) %>%
+    slice(1:n_scenarios)
+
+bar_plot(kpi_scenarios, "relative","scenarios",'Annualised cost [CHF/year]') %>%
+  plotly::layout(title = "Total operating and capital costs")
+```
+## Costs breakdown {-}
+
+### Investment costs {-}
+
+```{r investment cost}
+invCosts <- data$results$Units_Cost$DefaultInvCost
+invCosts[is.na(invCosts)] <- 0
+colnames(invCosts)  <- sub("(.*?_.*?_.*?_)","",colnames(invCosts))
+nr <- nrow(invCosts)
+invCostsScenario <- invCosts %>% mutate(scenarios = sprintf("Scenario %d", 1:nr))
+
+invCosts_figure <- plot_ly(invCostsScenario, type= 'bar')
+for (i in colnames(invCostsScenario)){
+  if (i != "scenarios") {
+    invCosts_figure <- invCosts_figure %>%
+          add_trace(x=invCostsScenario[['scenarios']], y=invCostsScenario[[i]], name = i)
+  }
+}
+invCosts_figure <- invCosts_figure %>% layout(yaxis = list(title = 'Total investment cost [CHF/Y]'), barmode = 'stack')
+invCosts_figure
+```
+
+
+```{r investment cost table}
+invCostsDF <- data.frame(t(invCosts))
+colnames(invCostsDF) <- paste('Scenario', 1:length(invCostsDF))
+kable(
+  invCostsDF,
+  format = get_output_format_for_kable()
+)
+```
+
+### Operating Costs {-}
+
+```{r operating cost}
+opCosts <- data$results$Units_Cost$DefaultOpCost
+opCosts[is.na(opCosts)] <- 0
+colnames(opCosts)  <- sub("(.*?_.*?_.*?_)","",colnames(opCosts))
+nr <- nrow(opCosts)
+opCostsScenario <- opCosts %>% mutate(scenarios = sprintf("Scenario %d", 1:nr))
+
+opCosts_figure <- plot_ly(opCostsScenario, type= 'bar')
+for (i in colnames(opCostsScenario)){
+  if (i != "scenarios") {
+    opCosts_figure <- opCosts_figure %>%
+          add_trace(x=opCostsScenario[['scenarios']], y=opCostsScenario[[i]], name = i)
+  }
+}
+opCosts_figure <- opCosts_figure %>% layout(yaxis = list(title = 'Total operating cost [CHF/Y]'), barmode = 'stack')
+opCosts_figure
+```
+
+```{r operating cost table}
+opCostsDF <- data.frame(t(opCosts))
+colnames(opCostsDF) <- paste('Scenario', 1:length(opCostsDF))
+knitr::kable(
+  opCostsDF,
+  format = get_output_format_for_kable()
+)
+```
+
+### Total costs {-}
+
+```{r total cost}
+totCosts <- opCosts + invCosts
+
+nr <- nrow(totCosts)
+totCostsScenario <- totCosts %>% mutate(scenarios = sprintf("Scenario %d", 1:nr))
+
+totCosts_figure <- plot_ly(totCostsScenario, type= 'bar')
+for (i in colnames(totCostsScenario)){
+  if (i != "scenarios") {
+    totCosts_figure <- totCosts_figure %>%
+          add_trace(x=totCostsScenario[['scenarios']], y=totCostsScenario[[i]], name = i)
+  }
+}
+totCosts_figure <- totCosts_figure %>% layout(yaxis = list(title = 'Total operating cost [CHF/Y]'), barmode = 'stack')
+totCosts_figure
+```
+
+```{r total cost table}
+totCostsDF <- data.frame(t(totCosts))
+colnames(totCostsDF) <- paste('Scenario', 1:length(totCostsDF))
+knitr::kable(
+  totCostsDF,
+  format = get_output_format_for_kable()
+)
+```
+
+## Units resume {-}
+
+### Units used at time t {-}
+
+```{r unit use t, echo=FALSE, eval = TRUE}
+unit_Use_t <- data.frame(data$results$Units_Use_t) %>%
+        slice(scenario)
+unit_use_t_list <- enframe(as.list(unit_Use_t))
+list <- rbind(unit_use_t_list$value)
+colnames(list) <- unit_use_t_list$name
+unit_use_t_list <- as.data.frame(list)
+unit_use_t <- data.frame(t(data.frame(flatten(list))))
+colnames(unit_use_t) <- sprintf(paste("timestep","%s"), 1:length(unit_use_t))
+rownames(unit_use_t) <- names(unit_use_t_list)
+rownames(unit_use_t)  <- sub("(.*?_.*?_.*?_)","",rownames(unit_use_t))
+
+knitr::kable(
+  unit_use_t,
+  format = get_output_format_for_kable()
+)
+
+if(n_timesteps > 1){
+  unit_use_t <- unit_use_t[ order(row.names(unit_use_t)), ]
+  unit_use_t[is.na(unit_use_t)] <- 0
+  unit_use_t$used <- ifelse(rowSums(unit_use_t == 1) > 0, 1, 0)
+  # unit_use_t$unit <- rownames(unit_use_t)
+  mat <- as.matrix(unit_use_t)
+  plot_ly(x=colnames(mat), y=rownames(mat), z=mat, colors=colorRamp(c("red", "green")), type="heatmap", showscale=F) %>%
+          layout(title="Use of units")
+}
+```
+
+### Units size percentage {-}
+
+```{r unit size percentage}
+fmax <- data$evaluated[[scenario]]$fmaxUnits[[1]]
+rownames(fmax) <- fmax$fmaxUnitName
+units_mult <- data$results$Units_Mult
+units_mult <- as.data.frame(t(units_mult))
+units_mult$name <- rownames(units_mult)
+colnames(units_mult) <- c("value", "name")
+merged_df <- merge(fmax, units_mult, by=0, all=T) %>%
+  mutate(percent=(value * 100)/fmaxValue)
+merged_df$name  <- sub("(.*?_.*?_.*?_)","",merged_df$name)
+
+plot <- ggplot(merged_df, aes(x = name, y = percent)) +
+        geom_bar(stat="identity", fill="steelblue") +
+        coord_flip() +
+        ggtitle("Size percentage used for all units") +
+        ylab("percentage of use [%]") +
+        xlab("") +
+        ylim(0,100) +
+        theme_minimal()
+ggplotly(plot)
+```
+
+
+### Units Multiplication (size) {-}
+
+```{r unit mult table}
+unit_mult <- data.frame(data$results$Units_Mult) %>%
+        slice(scenario)
+unit_mult_list <- enframe(as.list(unit_mult))
+list <- rbind(unit_mult_list$value)
+colnames(list) <- unit_mult_list$name
+unit_mult_list <- as.data.frame(list)
+unit_mult <- data.frame(t(data.frame(flatten(list))))
+colnames(unit_mult) <- sprintf("Value")
+rownames(unit_mult) <- names(unit_mult_list)
+rownames(unit_mult)  <- sub("(.*?_.*?_.*?_)","",rownames(unit_mult))
+
+knitr::kable(
+  unit_mult,
+  format = get_output_format_for_kable()
+)
+```
+
+### Units Multiplication (size) at time t {-}
+
+```{r unit mult t}
+unit_mult_t <- data.frame(data$results$Units_Mult_t) %>%
+        slice(scenario)
+unit_mult_t_list <- enframe(as.list(unit_mult_t))
+list <- rbind(unit_mult_t_list$value)
+colnames(list) <- unit_mult_t_list$name
+unit_mult_t_list <- as.data.frame(list)
+unit_mult_t <- data.frame(t(data.frame(flatten(list))))
+colnames(unit_mult_t) <- sprintf(paste("timestep","%s"), 1:length(unit_mult_t))
+rownames(unit_mult_t) <- names(unit_mult_t_list)
+rownames(unit_mult_t)  <- sub("(.*?_.*?_.*?_)","",rownames(unit_mult_t))
+
+knitr::kable(
+  unit_mult_t,
+  format = get_output_format_for_kable()
+)
+
+if(n_timesteps > 1){
+  unit_mult_t <- unit_mult_t[ order(row.names(unit_mult_t)), ]
+  unit_mult_t[is.na(unit_mult_t)] <- 0
+  mat <- as.matrix(unit_mult_t)
+  plot_ly(x=colnames(mat), y=rownames(mat), z=mat, colors="Greens", type="heatmap") %>%
+          layout(title="Unit Mult T")
+}
+```
+
+## Thermal streams {-}
+
+### Temperature streams {-}
+
+
+```{r heat streams}
+heat_streams <- function(time=1) {
+  heat_df <- data$evaluated[[1]]$streams[[time]]
+  heat_df$Tin_corr <- heat_df$Tin_corr - 273.15
+  heat_df$Tout_corr <- heat_df$Tout_corr - 273.15
+  heat_df$name <- sub("(.*?_.*?_.*?_)","",heat_df$name)
+  heat_df <- heat_df %>%
+          mutate(tin = ifelse (hout > hin, Tin_corr - dt, Tin_corr + dt)) %>%
+          mutate(colour = ifelse (hout > hin, "red", "blue")) %>%
+          mutate(base = ifelse (hout > hin, Tin_corr, Tout_corr)) %>%
+          mutate(diff = ifelse (hout > hin, Tout_corr, Tin_corr)) %>%
+          mutate(tout = ifelse (hout > hin, Tout_corr - dt, Tout_corr + dt))
+
+  plot <- ggplot(data = heat_df)+
+          geom_segment(aes(x = name, xend = name, y = base, yend = diff), col = heat_df$colour, size = 15, alpha = 0.5) +
+          geom_point(aes(x=name, y=tin), shape=18, size=0.5, col = heat_df$colour) +
+          geom_point(aes(x=name, y=tout), shape=18, size=0.5, col = heat_df$colour) +
+          coord_flip() +
+          ggtitle(sprintf(paste("Heat exchange for Time","%s"), time)) +
+          ylab("Temperature [°C]") +
+          xlab("") +
+          theme_minimal()
+  ggplotly(plot)
+}
+
+heat_streams(1)
+```
+
+<br>
+
+```{r, Heat cascade, echo=F, eval = TRUE}
+unit_h_mult <- data.frame(data$results$streamQ) %>%
+        slice(scenario)
+unit_h_mult_list <- enframe(as.list(unit_h_mult))
+list <- rbind(unit_h_mult_list$value)
+colnames(list) <- unit_h_mult_list$name
+unit_h_mult_list <- as.data.frame(list)
+unit_h_mult <- data.frame(t(data.frame(flatten(list))))
+colnames(unit_h_mult) <- sprintf(paste("timestep","%s"), 1:length(unit_h_mult))
+rownames(unit_h_mult) <- names(unit_h_mult_list)
+
+link_evaluated <- data$evaluated[[scenario]]   # take the scenario
+
+evaluated_streams <- data$evaluated[[scenario]]$streams[[1]]
+for(name in rownames(unit_h_mult)) {
+  hout <- evaluated_streams[evaluated_streams$name==name,]$hout
+  hin <- evaluated_streams[evaluated_streams$name==name,]$hin
+  if (hout < hin){
+    unit_h_mult[name,] <- unit_h_mult[name,] * (-1)
+  }
+}
+rownames(unit_h_mult)  <- sub("(.*?_.*?_.*?_)","",rownames(unit_h_mult))
+
+unit_h_mult <- unit_h_mult[ order(row.names(unit_h_mult)), ]
+unit_h_mult[is.na(unit_h_mult)] <- 0
+mat <- as.matrix(unit_h_mult)
+plot_ly(x=colnames(mat), y=rownames(mat), z=mat,
+        colors=colorRampPalette(c("blue", "#FFFFFF","red"))( 17 ),
+        type="heatmap",
+        colorbar=list(title="HEAT [kW]")) %>%
+         layout(title="Heat at Time")
+
+```
+
+
+### Grand Composite Curve {-}
+
+```{r gcc}
+display_gcc <- function(time=1){
+  graphs <- data$results$graph[[1]]
+  graph <- graphs[[time]]
+  graph <- graph[graph$plot_type == "gcc",]$data[[1]]
+  gcc <- graph$curve[[1]]
+
+  if (!is_empty(gcc)){
+    plot_ly() %>%
+            
+      add_trace(x=gcc$Q, y=gcc$T-273.15, mode = 'lines', line=list(color='blue'), marker=list(color='blue'), name='GCC') %>%
+      layout(xaxis= list(title = "Heat load [kW]"),
+             yaxis= list(title = "Corrected Temperatures [C]"),
+             yaxis2 = list(overlaying = "y", side = "right", title = 'Carnot factor 1-To/T [-]'),
+             margin= list(l=50, r=50, b=40, t=40),
+             title = "Grand Composite Curve with T0 = 298.15 K"
+            )
+  } else {
+    print(paste("There is no GCC for timestep", time))
+  }
+}
+
+display_gcc(1)
+```
+
+
+### Composite Curve {-}
+
+```{r cc}
+display_cc <- function(time=1){
+  graphs <- data$results$graph[[1]]
+  graph <- graphs[[time]]
+  graph <- graph[graph$plot_type == "cc",]$data[[1]]
+  hcc <- graph[graph$title == "Hot streams",]$curve[[1]]
+  ccc <- graph[graph$title == "Cold streams",]$curve[[1]]
+
+  if (!is_empty(hcc) && !is_empty(ccc)){
+    plot_ly() %>%
+            add_trace(x=hcc$Q, y=hcc$T-273.15, mode = 'lines', line=list(color='red'), marker=list(color='red'), name='Hot Stream') %>%
+            add_trace(x=ccc$Q, y=ccc$T-273.15, mode = 'lines', line=list(color='blue'), marker=list(color='blue'), name='Cold Streams') %>%
+            layout(xaxis= list(title = "Heat load [kW]"),
+                   yaxis= list(title = "Corrected Temperatures [°C]"),
+                   yaxis2 = list(overlaying = "y", side = "right", title = 'Carnot factor 1-To/T [-]'),
+                   margin= list(l=50, r=0, b=40, t=40),
+                   title = "Composite Curve with T0 = 298.15 K"
+            )
+    
+
+  } else {
+    print(paste("There is no CC for timestep", time))
+  }
+}
+
+display_cc(1)
+```
+
+### Integrated Composite Curve{-}
+
+```{r icc}
+display_icc <- function(time=1){
+  graphs <- data$results$graph[[1]]
+  graph <- graphs[[time]]
+  graph <- graph[graph$plot_type == "icc.utilities",]$data[[1]]
+  base <- graph[graph$title == "base",]$curve[[1]]
+  utilities <- graph[graph$title == "utilities",]$curve[[1]]
+
+  if (!is_empty(base) && !is_empty(utilities)){
+    plot_ly() %>%
+            add_trace(x=base$Q, y=base$T-273.15, mode = 'lines', line=list(color='red'), marker=list(color='red'), name='base') %>%
+            add_trace(x=utilities$Q, y=utilities$T-273.15, mode = 'lines', line=list(color='blue'), marker=list(color='blue'), name='utilities') %>%
+            layout(xaxis= list(title = "Heat load [kW]"),
+                   yaxis= list(title = "Corrected Temperatures [C]"),
+                   margin= list(l=50, r=20, b=40, t=40),
+                   yaxis2 = list(overlaying = "y", side = "right", title = 'Carnot factor 1-To/T [-]'),
+                   title = "Integrated Composite Curve with T0 = 298.15 K"
+            )
+
+  } else {
+    print(paste("There is no ICC for timestep", time))
+  }
+}
+
+display_icc(1)
+```
+
+### Carnot{-}
+
+```{r carnot}
+display_carnot <- function(time=1){
+  graphs <- data$results$graph[[1]]
+  graph <- graphs[[time]]
+  graph <- graph[graph$plot_type == "carnot.utilities",]$data[[1]]
+  base <- graph[graph$title == "base",]$curve[[1]]
+  utilities <- graph[graph$title == "utilities",]$curve[[1]]
+
+  if (!is_empty(base) && !is_empty(utilities)){
+    plot_ly() %>%
+            add_trace(x=base$Q, y=base$T, mode = 'lines', line=list(color='red'), marker=list(color='red'), name='base') %>%
+            add_trace(x=utilities$Q, y=utilities$T, mode = 'lines', line=list(color='blue'), marker=list(color='blue'), name='utilities') %>%
+            layout(xaxis= list(title = "Heat load [kW]"),
+                   yaxis= list(title = "Carnot factor 1-To/T [-]"),
+                   margin= list(l=50, r=20, b=40, t=40),
+                   title = "Carnot with T0 = 298.15 K"
+            )
+
+  } else {
+    print(paste("There is no Carnot for timestep", time))
+  }
+}
+
+display_carnot(1)
+```
+
+### HEN Area {-}
+
+```{r}
+get_HEN <- function () {
+  spag_area <- data$results$spaghetti[[1]]$Clu.DefaultHeatCascade.area_total
+  min_number_HEX <- data$results$spaghetti[[1]]$Clu.DefaultHeatCascade.HEs
+  hex_area <- spag_area / min_number_HEX
+  an_factor <- 0.10
+  c_hen <- (8500 + 409 * hex_area^(0.85)) * min_number_HEX * 603.1/402 * an_factor
+  return(list("hex_area" = hex_area, "an_factor" = an_factor, "c_hen"= c_hen))
+}
+
+hen <- get_HEN()
+```
+
+hex area : `r hen$hex_area`
+an factor : `r hen$an_factor`
+c hen : `r hen$c_hen`

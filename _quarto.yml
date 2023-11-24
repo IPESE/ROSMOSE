@@ -1,0 +1,39 @@
+project:
+  type: book
+
+book:
+  title: "ROSMOSE: A Web-based Decision Support Tool"
+  author: "IPESE EPFL"
+  date: last-modified
+  chapters:
+    - index.qmd
+    - 01.00-tutorial.qmd
+    - 02.00-coolprop.qmd
+    - 03.00-energy_bill.qmd
+    - 04.00-pinch_analysis.qmd
+    - 05.00-conclusions.qmd
+  description: "Report Summary"
+  navbar:
+    search: true
+    logo: https://web2018.epfl.ch/2.0.0/icons/epfl-logo.svg
+    logo-alt: EPFL | IPESE
+  sidebar:
+    search: false
+  page-footer:
+    left:
+      - text: '<a class="logo" href="https://ipese.epfl.ch"><img alt="IPESE" height="100px" src="https://ipese-lectures.epfl.ch/static/ipese-logo-black.svg"/></a>'
+    center:
+      - text: "&copy; 2023 - Industrial Process and Energy Systems Engineering (IPESE)"
+
+
+bibliography: [project.bib]
+
+format:
+  html:
+    theme: cosmo
+    code-fold: true
+    code-tools:
+      source: false
+      toggle: true
+      caption: none
+    html-math-method: katex

@@ -1,0 +1,370 @@
+```{r}
+path <- file.path('../venv/bin/python3.10')
+library(reticulate)
+use_python(path)
+```
+
+
+# Mass and Energy Balance Calculations
+
+## Rivella production section
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+#Fermentation 
+M_R1 = M_c4 + M_e22
+DM_R1 = (DM_c4*M_c4 + DM_e22*M_e22)/M_R1
+T_R1 = 25+273.15
+P_R1 = 101325
+R1 = mixture (frac_water=1-DM_R1, frac_fat=DM_R1, T= T_R1, P=P_R1)
+print (M_R1, DM_R1, T_R1, P_R1, R1)
+#Assume the flowrate of bacteria is negligible and there is no heat loss during fermentation
+M_R2 = 0
+M_R3 = M_R1
+DM_R3 = DM_R1
+T_R3 = 25+273.15
+P_R3 = 101325
+R3 = mixture (frac_water=1-DM_R3, frac_fat=DM_R3, T= T_R3, P=P_R3)
+
+# R-Mixer1
+M_R4 = 0.02*M_R3
+DM_R4 = 0 
+M_R5 = M_R3 + M_R4
+DM_R5 = (M_R3 * DM_R3)/M_R5
+#assume Cp of the Aromes / Secret ingredient are negligible 
+T_R5 = T_R3
+P_R5 = P_R3
+R5 = mixture (frac_water=1-DM_R5, frac_fat=DM_R5, T= T_R5, P=P_R5)
+
+#Evaporator at 1 bar absolute 
+DM_R7 = 0.5
+M_R7 = (M_R5*DM_R5)/DM_R7
+M_R6 = M_R5*(1-DM_R5) - M_R7*(1-DM_R7)
+T_R7 = 99.9+273.15
+P_R7 = 101325
+R7 = mixture (frac_water=1-DM_R7, frac_fat=DM_R7, T= T_R7, P=P_R7)
+T_R6 = 100+273.15
+P_R6 = 101325
+R6 = State(pair='TP',fluid='Water',temperature=T_R6,pressure=P_R6)
+R6.StateCalc()
+print(R6.__dict__)
+Q_riv_evap = M_R6*hlv_1bar
+Q_riv_deltaT = M_R5*R5["cpmass"]*(T_R7-T_R5)
+Q_R_evap = Q_riv_evap + Q_riv_deltaT
+print (Q_R_evap)
+M_steam_R_evap = Q_R_evap/hlv
+print (M_R5, DM_R5, M_R7,DM_R7, M_R6)
+print ("heat needed to heat up M_R5 stream to 100°C and evaporate ", round(M_R6,2) ," kg/s of water in the Rivella evaporator is: ", round (Q_R_evap/1000, 2), "kW.This will require the use of ", round(M_steam_R_evap,2) , "kg/s of MP steam.")
+
+
+#Heat exchanger R-HEX1
+M_R17 = 0.7*M_R7
+M_R8 = 0.3*M_R7
+DM_R17 = DM_R7
+DM_R8 = DM_R7
+T_R8 = 50+273.15
+P_R8 = 101325
+R8 = mixture (frac_water=1-DM_R8, frac_fat=DM_R8, T= T_R8, P=P_R8)
+
+T_R17 = 50+273.15
+P_R17 = 101325
+R17 = mixture (frac_water=1-DM_R17, frac_fat=DM_R17, T= T_R17, P=P_R17)
+
+Q_RHEX1 = M_R17*R17["enthalpy"] + M_R8*R8["enthalpy"] - M_R7*R7["enthalpy"]
+
+print (Q_RHEX1)
+
+```
+
+
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+#Rivella Vert
+
+# R-Mixer2
+#assume negligible flowrate of green tea extract 
+M_R9 = 0 
+Cp_R9 = 0
+M_R10 = M_R8 
+T_R10 = T_R8 
+P_R10 = P_R8 
+DM_R10 = DM_R8 
+
+R10 = mixture (frac_water=1-DM_R10, frac_fat=DM_R10, T= T_R10, P=P_R10)
+
+# R-Mixer3
+DM_R13 = 0.3
+M_R13 = (M_R10*DM_R10)/DM_R13
+Sug_frac_R13 = 0.2 #Sugar fraction in Rivella Vert 20%
+M_R12 = Sug_frac_R13 * M_R13
+M_R11 = M_R13 - M_R10 - M_R12
+Water_frac_R13 = (M_R11 + M_R10*(1-DM_R10))/M_R13
+T_R11 = 25+273.15
+P_R11 = 101325
+R11 = State(pair='TP',fluid='Water',temperature=T_R11,pressure=P_R11)
+R11.StateCalc()
+print(R11.__dict__)
+
+T_R12 = 25+273.15
+P_R12 = 101325 #assume sugar and water are added at ambient conditions 
+R12_cpmass = 1224 #J/kg°C
+
+R13_cpmass = (M_R11 * R11.cpmass + M_R12 * R12_cpmass + M_R10*R10["cpmass"])/M_R13
+P_R13 = 101325
+
+T_R13 = (R10["cpmass"]* M_R10 * T_R10 + R11.cpmass * M_R11 * T_R11 + R12_cpmass * M_R12 * T_R12) / (M_R13*R13_cpmass)
+
+print (R10["cpmass"], R11.cpmass, R12_cpmass, R13_cpmass, T_R13)
+
+#Cooling heat exchanger E-9
+M_R14 = M_R13 
+DM_R14 = DM_R13 
+P_R14 = 101325
+Water_frac_R14 = Water_frac_R13
+Sug_frac_R14 = Sug_frac_R13
+
+#Bottle filling and storage
+
+Rivella_CO2_conc = 6 #kgCO2/m3 typical for softdrinks 
+Rivella_density = 977 #kg/m3, assume same density as water
+
+M_R15 = M_R14*Rivella_CO2_conc/Rivella_density
+T_R15 = 25+273.15
+P_R15 = 2*101325
+R15_cpmass = 849 #J/kg k
+
+
+#Heat loss of 1 glass bottle:
+Cp_glass = 753 #J/kg°C defined in CIP section
+W_glass_bottle = 0.37 #kg, specified in CIP section
+Delta_T_bottle = 30 #the bottle enters at 40°C and leaves to storage at 10°C
+Q_glass = W_glass_bottle*Cp_glass*Delta_T_bottle
+
+
+#Calculation of the Temperature gain of the Rivella inside the bottle:
+
+V_bottle = 0.0005 #m3
+R14_cpmass = R13_cpmass
+T_R16 = 10+273.15
+P_R16 = 101325
+M_R16 = M_R14
+T_R14 = T_R16 - Q_glass/(Rivella_density*R14_cpmass*V_bottle)
+Q_E9 = M_R13*R13_cpmass*(T_R14 - T_R13)
+R16_cpmass = R14_cpmass
+
+print (T_R14, Q_E9)
+
+
+
+
+```
+
+
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+#Rivella Rouge
+DM_R20 = 0.3
+M_R20 = M_R17*DM_R17/DM_R20
+Sug_frac_R20 = 0.35
+M_R19 = Sug_frac_R20 * M_R20
+M_R18 = M_R20 - M_R17 - M_R19 
+Water_frac_R20 = (M_R18 + M_R17*(1-DM_R17))/M_R20 #matches given composition of 35wt% water
+
+T_R18 = 25+273.15
+P_R18 = 101325
+R18 = State(pair='TP',fluid='Water',temperature=T_R18,pressure=P_R18)
+R18.StateCalc()
+print(R18.__dict__)
+
+
+T_R19 = 25+273.15
+P_R19 = 101325 #assume sugar and water are added at ambient conditions 
+R19_cpmass = 1224 #J/kg°C
+
+R20_cpmass = (M_R18 * R18.cpmass + M_R19 * R19_cpmass + M_R17*R17["cpmass"])/M_R20
+
+T_R20 = (R17["cpmass"]* M_R17 * T_R17 + R18.cpmass * M_R18 * T_R18 + R19_cpmass * M_R19 * T_R19) / (M_R20*R20_cpmass)
+P_R20 = 101325
+
+print (R17["cpmass"], R18.cpmass, R19_cpmass, R20_cpmass, T_R20)
+
+
+#Cooling heat exchanger E-8
+M_R21 = M_R20
+DM_R21 = DM_R20
+Water_frac_R21 = Water_frac_R20
+Sug_frac_R21 = Sug_frac_R20
+
+#Bottle filling and storage
+
+Rivella_CO2_conc = 6 #kgCO2/m3 typical for softdrinks 
+Rivella_density = 977 #kg/m3, assume same density as water
+
+M_R22 = M_R21*Rivella_CO2_conc/Rivella_density
+T_R22 = 25+273.15
+P_R22 = 2*101325
+R22_cpmass = 849 #J/kg k
+
+#Calculation of the Temperature gain of the Rivella inside the bottle:
+
+R21_cpmass = R20_cpmass
+T_R23 = 10+273.15
+P_R23 = 101325
+R23_cpmass = R21_cpmass
+M_R23 = M_R21
+T_R21 = T_R23 - Q_glass/(Rivella_density*R21_cpmass*V_bottle)
+P_R21 = 101325
+Q_E8 = M_R20*R20_cpmass*(T_R21 - T_R20)
+
+print (T_R21, Q_E8)
+
+R23_cpmass = R21_cpmass
+
+
+```
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+R12_enthalpy = R12_cpmass*T_R12
+R12 = {"fluid": "sugar", "Temperature": T_R12, "Pressure": P_R12, "cpmass": R12_cpmass,"enthalpy": R12_enthalpy }
+
+R13_enthalpy = R13_cpmass*T_R13
+R13 = {"fluid": "water&sugar&fat", "Temperature": T_R13, "Pressure": P_R13, "cpmass": R13_cpmass,"enthalpy": R13_enthalpy }
+
+R14_enthalpy = R14_cpmass*T_R14
+R14 = {"fluid": "water&sugar&fat", "Temperature": T_R14, "Pressure": P_R14, "cpmass": R14_cpmass,"enthalpy": R14_enthalpy }
+
+R15_enthalpy = R15_cpmass*T_R15
+R15 = {"fluid": "CO2", "Temperature": T_R15, "Pressure": P_R15, "cpmass": R15_cpmass,"enthalpy": R15_enthalpy }
+
+R16_enthalpy = R16_cpmass*T_R16
+R16 = {"fluid": "water&sugar&fat", "Temperature": T_R16, "Pressure": P_R16, "cpmass": R16_cpmass,"enthalpy": R16_enthalpy }
+
+R19_enthalpy = R19_cpmass*T_R19
+R19 = {"fluid": "sugar", "Temperature": T_R19, "Pressure": P_R19, "cpmass": R19_cpmass,"enthalpy": R19_enthalpy }
+
+R20_enthalpy = R20_cpmass*T_R20
+R20 = {"fluid": "water&sugar&fat", "Temperature": T_R20, "Pressure": P_R20, "cpmass": R20_cpmass,"enthalpy": R20_enthalpy}
+
+R21_enthalpy = R21_cpmass*T_R21
+R21 = {"fluid": "water&sugar&fat", "Temperature": T_R21, "Pressure": P_R21, "cpmass": R21_cpmass,"enthalpy": R21_enthalpy}
+
+R22_enthalpy = R22_cpmass*T_R22
+R22 = {"fluid": "CO2", "Temperature": T_R22, "Pressure": P_R22, "cpmass": R22_cpmass,"enthalpy": R22_enthalpy}
+
+
+R23_enthalpy = R23_cpmass*T_R23
+R23 = {"fluid": "water&sugar&fat", "Temperature": T_R23, "Pressure": P_R23, "cpmass": R23_cpmass,"enthalpy": R23_enthalpy }
+
+```
+
+```{python use-coolprop1, message=T, echo=T}
+from pyxosmose.state import State
+from coolprop_functions import mixture
+
+heat_R10 = M_R10*R10["cpmass"]*(T_R13-T_R10)
+
+heat_R11 = M_R11*R11.cpmass*(T_R13-T_R11)
+
+heat_R12 = M_R12*R12_cpmass*(T_R13-T_R12)
+
+print (heat_R10/1000, heat_R11/1000, heat_R12/1000)
+
+heat_R14 = M_R14*R14_cpmass*(T_R16-T_R14)
+
+print (heat_R14/1000, Q_glass/1000)
+
+heat_R17 = M_R17*R17["cpmass"]*(T_R20-T_R17)
+
+heat_R18 = M_R18*R18.cpmass*(T_R20-T_R18)
+
+heat_R19 = M_R19*R19_cpmass*(T_R20-T_R19)
+
+print (heat_R17/1000, heat_R18/1000, heat_R19/1000)
+
+
+heat_R21 = M_R21*R21_cpmass*(T_R23-T_R21)
+
+heat_glass_rouge = - heat_R21
+
+N_glass_rouge = heat_glass_rouge/Q_glass
+
+print (heat_R21/1000, heat_glass_rouge/1000, N_glass_rouge)
+
+
+````
+
+
+```{python, eval=F}
+import json
+filename = 'results/scenario1.json'
+entry = {'R1': R1, 'R3': R3, 'R5': R5, 'R6': R6.__dict__, 'R7': R7, 'R8': R8, 'R10': R10, 'R11': R11.__dict__, 'R12': R12,'R13': R13, 'R14': R14, 'R15': R15,'R16': R16,'R17': R17, 'R18': R18.__dict__, 'R19': R19, 'R20': R20, 'R21': R21,'R22': R22, 'R23': R23}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/energy_bill.json'
+entry = {'Q_R_evap': Q_R_evap, 'Q_RHEX1': Q_RHEX1,'Q_E8': Q_E8,'Q_E9': Q_E9}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/utility.json'
+entry = {'M_steam_R_evap': M_steam_R_evap}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```
+
+```{python, eval=F}
+import json
+filename = 'results/streams.json'
+entry = {'T_R1': T_R1, 'T_R3': T_R3, 'T_R5': T_R5, 'T_R6': T_R6, 'T_R7': T_R7, 'T_R8': T_R8, 'T_R10': T_R10, 'T_R11': T_R11, 'T_R12': T_R12,'T_R13': T_R13, 'T_R14': T_R14, 'T_R15': T_R15,'T_R16': T_R16,'T_R17': T_R17, 'T_R18': T_R18, 'T_R19': T_R19, 'T_R20': T_R20, 'T_R21': T_R21,'T_R22': T_R22, 'T_R23': T_R23,'M_R1': M_R1, 'M_R3': M_R3, 'M_R5': M_R5, 'M_R6': M_R6, 'M_R7': M_R7, 'M_R8': M_R8, 'M_R10': M_R10, 'M_R11': M_R11, 'M_R12': M_R12,'M_R13': M_R13, 'M_R14': M_R14, 'M_R15': M_R15,'M_R16': M_R16,'M_R17': M_R17, 'M_R18': M_R18, 'M_R19': M_R19, 'M_R20': M_R20, 'M_R21': M_R21,'M_R22': M_R22, 'M_R23': M_R23, 'P_R1': P_R1, 'P_R3': P_R3, 'P_R5': P_R5, 'P_R6': P_R6, 'P_R7': P_R7, 'P_R8': P_R8, 'P_R10': P_R10, 'P_R11': P_R11, 'P_R12': P_R12,'P_R13': P_R13, 'P_R14': P_R14, 'P_R15': P_R15,'P_R16': P_R16,'P_R17': P_R17, 'P_R18': P_R18, 'P_R19': P_R19, 'P_R20': P_R20, 'P_R21': P_R21,'P_R22': P_R22, 'P_R23': P_R23}
+
+with open (filename, "r") as file:
+  data = json.load(file)
+
+data.update(entry)
+
+print(data)
+
+with open (filename, "w") as file:
+  json.dump(data, file)
+```

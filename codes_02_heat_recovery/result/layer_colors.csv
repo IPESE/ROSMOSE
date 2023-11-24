@@ -1,0 +1,8 @@
+layer,color
+electricity,yellow
+natural_gas,orange
+CH4,orange
+CO2_liq,#008000
+CO2_vap,#7FFF00
+DefaultHeatCascade,red
+heatsofc,#FF2000

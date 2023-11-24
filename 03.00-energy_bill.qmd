@@ -1,0 +1,883 @@
+```{r setup rosmose, warning = F, results = "hide", message=F, eval=T, echo=F}
+source("./use-venv.R", local = knitr::knit_global())
+```
+
+# Energy bill
+
+
+This section includes: 
+
++ Analyzing the dairy processes flowsheet 
+
+- Defining the state of each stream (= define temperature, pressure, enthalpy, mass flow, etc...)
+
+* Defining the energy needs 
+
+  * Heat and cooling needs    
+  
+  + Electricity, natural gas, water
+
+- Conducting exergy analysis of the system
+
+- Calculating the energy bill in different countries (France and Germany scenarios)
+
+## Dairy process units
+
+```{r dairy-process, echo=F, out.width='90%', fig.align='center', fig.cap='Dairy process units'}
+knitr::include_graphics('Figures/dairy_process.svg')
+```
+
+@beckerMethodologyThermoEconomicOptimization2012 , @dardorROSMOSEWebbasedOptimization2023 , @goffDairyScienceTechnology
+
+
+## Pasteurization section 
+
+Mass and energy balance calculations for the pasteurization section \@ref(fig:PAST-section).
+Assumptions:
+
+* Fresh milk dry matter content is 13 wt% 
+
+* Work of the centrifuge and the mixer are negligible
+
+* $\Delta T = 5 K$ for all heat exchangers except for PAST1 $\Delta T = 2 K$ and PAST5 $\Delta T = 6.8 K$  \frac{\partial f}{\partial x}
+
+* Coolprop and mixture state function can be used to estimate the state properties simulating milk as a mixture of water and methylLinolenate.  
+
+* Glycolic water composition: 30 wt% propylene glycol, 70 wt% pure water $T_{freezing}= -14°C$ and the specific heat of the mixture is $C_{p,gw}= 3900 \frac{J}{\ kg.k}$ entering at -5°C and leaving at -1°C.
+
+* Medium pressure steam at 3 bar was used as the heating utility and is assumed to enter all heat exchangers as saturated vapor and leave as saturated liquid with $\Delta h_{vaporization} = 2,164 \frac{kJ}{\ kg}$ and $T_{saturation}= 133.5°C$
+
+```{r PAST-section, echo=F, out.width='90%', fig.align='center', fig.cap='Pasteurization section flowsheet'}
+knitr::include_graphics('Figures/pasteurisation.svg')
+```
+
+```{r}
+library(jsonlite)
+
+```
+
+```{python get-json-data1, echo=F}
+from codes_01_energy_bill.coolprop_functions import load_states
+PAST_data = load_states("codes_01_energy_bill/results/scenario1.json")
+
+S_PAST = ["freshmilk", "mixtureout", "pastcent", "milk0", "pasta", "pastb", "pastc", "pastd", "milk", "cream0", "crpasta" , "crpastx", "thickener", "crpastb", "crpastc" , "cream"]
+H_PAST = [PAST_data[i]["enthalpy"] for i in S_PAST]
+
+PAST_energy = load_states("codes_01_energy_bill/results/energy_bill.json")
+PAST_HEX = ["Q_Refrigeration", "Q_PAST1", "Q_PAST2", "Q_PAST3", "Q_PAST4", "Q_PAST5", "Q_PAST6", "Q_PAST7" ]
+Q_PAST = [PAST_energy[i] for i in PAST_HEX]
+
+PAST_streams = load_states("codes_01_energy_bill/results/streams.json")
+T_PAST_streams = ["T_freshmilk", "T_mixtureout", "T_pastcent", "T_milk0", "T_pasta", "T_pastb", "T_pastc", "T_pastd", "T_milk", "T_cream0", "T_crpasta" , "T_crpastx", "T_thickener", "T_crpastb", "T_crpastc" , "T_cream"]
+T_PAST = [PAST_streams[i] for i in T_PAST_streams]
+P_PAST_streams = ["P_freshmilk", "P_mixtureout", "P_pastcent", "P_milk0", "P_pasta", "P_pastb", "P_pastc", "P_pastd", "P_milk", "P_cream0", "P_crpasta" , "P_crpastx", "P_thickener", "P_crpastb", "P_crpastc" , "P_cream"]
+P_PAST = [PAST_streams[i] for i in P_PAST_streams]
+
+M_PAST_streams = ["M_freshmilk", "M_mixtureout", "M_pastcent", "M_milk0", "M_pasta", "M_pastb", "M_pastc", "M_pastd", "M_milk", "M_cream0", "M_crpasta" , "M_crpastx", "M_thickener", "M_crpastb", "M_crpastc" , "M_cream"]
+M_PAST = [PAST_streams[i] for i in M_PAST_streams]
+```
+
+
+```{r}
+S_PAST = py$S_PAST
+T_PAST = round(py$T_PAST, digits = 2)
+M_PAST = (py$M_PAST)*3600
+P_PAST = round(py$P_PAST, digits =2)
+H_PAST = (py$H_PAST)/1000
+H_PAST = round(H_PAST, digits = 2)
+H_PAST = format (H_PAST,big.mark = ",")
+Q_PAST = (py$Q_PAST)/1000
+Q_PAST = round(Q_PAST, digits = 2)
+Q_past_total = sum(Q_PAST[c(4,7)])
+Q_cool_past_total = sum(Q_PAST[c(1,5,8)])
+Q_PAST = format (Q_PAST,big.mark = ",")
+mat_QPAST = matrix (c(Q_PAST) , ncol = 1, nrow = 8, byrow = T)
+mat_PAST = matrix(c(S_PAST, M_PAST, T_PAST, P_PAST, H_PAST), ncol=5, nrow=16 ,byrow=F)
+colnames (mat_PAST) = c("Stream name", "Flowrate [kg/h]", "Temperature [K]", "Pressure [Pa]", "Enthalpy [kJ/kg]")
+rownames (mat_QPAST) = c("Q_Refrigeration", "Q_PAST1", "Q_PAST2", "Q_PAST3", "Q_PAST4", "Q_PAST5", "Q_PAST6", "Q_PAST7")
+
+colnames (mat_QPAST) = c("Load [kW]")
+```
+
+
+```{r PAST-Streams, tidy=TRUE}
+knitr::kable(
+  head(mat_PAST,16), caption = 'Pasteurisation section streams', "pipe", align = "lcccc", digits =2,
+  booktabs = TRUE
+)
+```
+
+
+```{r PAST-Heat, tidy=TRUE}
+knitr::kable(
+  head(mat_QPAST,8), caption = 'Pasteurisation section energy requirements', "pipe", align = "lc", digits =2,
+  booktabs = TRUE
+)
+```
+
+
+## Evaporation section 
+
+Mass and energy balance calculations for the evaporation section \@ref(fig:EVAP-section).
+Assumptions:  
+
+* Dry matter content: Concentrated milk: 50 wt%, Whey/Lactoserum: 10 wt%, Wastewater: 1 wt%.
+
+* Zero pressure drop across all evaporators.  
+
+* All steam used for heating leaves heat exchangers / evaporators as saturated liquid except for e16 and e18 which leave as saturated liquid vapor mixtures with vapor fractions of 60% and 19% respectively.
+
+* $\Delta T = 5 K$ for all heat exchangers except for P1 $\Delta T = 36 K$ and P5 $\Delta T = 51 K$.  
+
+* Coolprop and mixture state function can be used to estimate the state properties simulating milk as a mixture of water and methylLinolenate.   
+[@shiDairyProcessingSludge2021]
+
+```{r EVAP-section, echo=F, out.width='90%', fig.align='center', fig.cap='Evaporation section flowsheet'}
+knitr::include_graphics('Figures/Evaporation.svg')
+```
+
+
+```{python get-json-data2, echo=F}
+from codes_01_energy_bill.coolprop_functions import load_states
+EVAP_data = load_states("codes_01_energy_bill/results/scenario1.json")
+S_EVAP = ["e1", "e2","e3", "e4", "e5", "e6", "e7", "e8", "e9", "e10", "e11", "e12", "e13", "e14", "e15", "e16", "e17", "e18", "e19", "e20", "e21", "e22", "e23"]
+H_EVAP = [EVAP_data[i]["enthalpy"] for i in S_EVAP]
+
+EVAP_energy = load_states("codes_01_energy_bill/results/energy_bill.json")
+EVAP_HEX = ["Q_P1","Q_P2","Q_P3","Q_P4","Q_P5","Q_EVAP1","Q_EVAP2","Q_EVAP3"]
+Q_EVAP = [EVAP_energy[i] for i in EVAP_HEX]
+Q_e16 = EVAP_energy ["Q_e16"]
+
+EVAP_streams = load_states("codes_01_energy_bill/results/streams.json")
+T_EVAP_streams = ["T_e1", "T_e2" ,"T_e3", "T_e4", "T_e5", "T_e6", "T_e7", "T_e8", "T_e9", "T_e10", "T_e11", "T_e12", "T_e13", "T_e14", "T_e15", "T_e16", "T_e17", "T_e18", "T_e19", "T_e20", "T_e21", "T_e22", "T_e23"]
+T_EVAP = [EVAP_streams[i] for i in T_EVAP_streams]
+
+P_EVAP_streams = ["P_e1", "P_e2" ,"P_e3", "P_e4", "P_e5", "P_e6", "P_e7", "P_e8", "P_e9", "P_e10", "P_e11", "P_e12", "P_e13", "P_e14", "P_e15", "P_e16", "P_e17", "P_e18", "P_e19", "P_e20", "P_e21", "P_e22", "P_e23"]
+P_EVAP = [EVAP_streams[i] for i in P_EVAP_streams]
+
+M_EVAP_streams = ["M_e1", "M_e2" ,"M_e3", "M_e4", "M_e5", "M_e6", "M_e7", "M_e8", "M_e9", "M_e10", "M_e11", "M_e12", "M_e13", "M_e14", "M_e15", "M_e16", "M_e17", "M_e18", "M_e19", "M_e20", "M_e21", "M_e22", "M_e23"]
+M_EVAP = [EVAP_streams[i] for i in M_EVAP_streams]
+vap_frac_e16l = EVAP_streams ["vap_frac_e16l"]
+
+```
+
+```{r}
+
+S_EVAP = py$S_EVAP
+T_EVAP = round(py$T_EVAP, digits = 2)
+P_EVAP = round(py$P_EVAP, digits = 0)
+M_EVAP = (py$M_EVAP)*3600
+H_EVAP = (py$H_EVAP)/1000
+H_EVAP = round(H_EVAP, digits = 2)
+H_EVAP = format (H_EVAP,big.mark = ",")
+M_EVAP = round(M_EVAP, digits = 0)
+Q_EVAP = (py$Q_EVAP)/1000
+Q_EVAP = round(Q_EVAP, digits = 2)
+Q_evap_total = sum(Q_EVAP[c(6)])
+Q_cool_evap_total = sum(Q_EVAP[c(5)])
+Q_EVAP = format (Q_EVAP,big.mark = ",")
+mat_QEVAP= matrix (c(Q_EVAP) , ncol = 1, nrow = 8, byrow = T)
+mat_EVAP = matrix(c(S_EVAP, M_EVAP, T_EVAP, P_EVAP, H_EVAP), ncol=5, nrow=23 ,byrow=F)
+colnames (mat_EVAP) = c("Stream name", "Flowrate [kg/h]", "Temperature [K]", "Pressure [Pa]", "Enthalpy [kJ/kg]")
+rownames (mat_QEVAP) = c("Q_P1","Q_P2","Q_P3","Q_P4","Q_P5","Q_EVAP1","Q_EVAP2","Q_EVAP3")
+
+colnames (mat_QEVAP) = c("Load [kW]")
+```
+
+
+```{r EVAP-Streams, tidy=TRUE}
+knitr::kable(
+  head(mat_EVAP,23), caption = 'Evaporation section streams', "pipe", align = "lcccc", digits =2,
+  booktabs = TRUE
+)
+```
+
+```{r EVAP-Heat, tidy=TRUE}
+knitr::kable(
+  head(mat_QEVAP,8), caption = 'Evaporation section energy requirements', "pipe", align = "lc", digits =2, booktabs = TRUE
+)
+```
+### Notes from code calculation sections
+
+The heat needed for preheater 2 is: `r round (py$Q_EVAP[2]/1000, 2)` kW, while extra heat is available in stream e16 which contains: `r round (py$Q_e16/1000, 2) ` kW. The stream will then leave P2 as a saturated liquid vapor mixture with a vapor fraction of `r round (py$vap_frac_e16l, 2) `.
+
+
+## Cheese production section 
+
+Mass and energy balance calculations for the cheese production section \@ref(fig:Cheese-section).
+Assumptions:  
+
+* 2.5 kg of milk is needed for 1 kg of cheese.
+* 1 kg of brine is produced for each 2 kg of cheese.
+* NaCl is negligible for heat balances.
+* Filter efficiency is 50% and whey/Lactoserum is 60 wt% water.
+* Mass flow of cultures is negligible.
+* Brine and cheese streams leave mixing and cooling at the same temperature.  
+
+```{r Cheese-section, echo=F, out.width='90%', fig.align='center', fig.cap='Cheese production section flowsheet'}
+knitr::include_graphics('Figures/Cheese.svg')
+```
+
+
+```{python get-json-data3, echo=F}
+from codes_01_energy_bill.coolprop_functions import load_states
+Cheese_data = load_states("codes_01_energy_bill/results/scenario1.json")
+S_Cheese = ["c1", "c2","c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10"]
+H_Cheese = [Cheese_data[i]["enthalpy"] for i in S_Cheese]
+Cheese_energy = load_states("codes_01_energy_bill/results/energy_bill.json")
+Cheese_HEX = ["Q_CHEX1","Q_CHEX2","Q_Proc_Cooling","Q_mixing_cooling"]
+Q_Cheese = [Cheese_energy[i] for i in Cheese_HEX]
+
+Cheese_streams = load_states("codes_01_energy_bill/results/streams.json")
+T_Cheese_streams = ["T_c1", "T_c2","T_c3", "T_c4", "T_c5", "T_c6", "T_c7", "T_c8", "T_c9", "T_c10"]
+T_Cheese = [Cheese_streams[i] for i in T_Cheese_streams]
+
+P_Cheese_streams = ["P_c1", "P_c2","P_c3", "P_c4", "P_c5", "P_c6", "P_c7", "P_c8", "P_c9", "P_c10"]
+P_Cheese = [Cheese_streams[i] for i in P_Cheese_streams]
+
+M_Cheese_streams = ["M_c1", "M_c2","M_c3", "M_c4", "M_c5", "M_c6", "M_c7", "M_c8", "M_c9", "M_c10"]
+M_Cheese = [Cheese_streams[i] for i in M_Cheese_streams]
+
+
+```
+
+```{r}
+S_Cheese = py$S_Cheese
+P_Cheese = py$P_Cheese
+T_Cheese = py$T_Cheese
+M_Cheese = round(py$M_Cheese*3600, digits = 2)
+H_Cheese = (py$H_Cheese)/1000
+H_Cheese = round(H_Cheese, digits = 2)
+H_Cheese = format (H_Cheese,big.mark = ",")
+Q_Cheese = (py$Q_Cheese)/1000
+Q_Cheese = round(Q_Cheese, digits = 2)
+Q_cheese_total = sum(Q_Cheese[c(1,2)])
+Q_cool_cheese_total = sum(Q_Cheese[c(3,4)])
+Q_Cheese = format (Q_Cheese,big.mark = ",")
+mat_QCheese= matrix (c(Q_Cheese) , ncol = 1, nrow = 4, byrow = T)
+mat_Cheese = matrix(c(S_Cheese, M_Cheese, T_Cheese, P_Cheese, H_Cheese), ncol=5, nrow=10,byrow=F)
+colnames (mat_Cheese) = c("Stream name", "Flowrate [kg/h]", "Temperature [K]", "Pressure [Pa]", "Enthalpy [kJ/kg]")
+rownames (mat_QCheese) = c("Q_CHEX1","Q_CHEX2","Q_Proc_Cooling","Q_mixing_cooling")
+
+colnames (mat_QCheese) = c("Load [kW]")
+```
+
+
+```{r Cheese-Streams, tidy=TRUE}
+knitr::kable(
+  head(mat_Cheese,10), caption = 'Cheese Production section streams', "pipe", align = "lcccc", digits =2, booktabs = TRUE
+)
+```
+
+```{r Cheese-Heat, tidy=TRUE}
+knitr::kable(
+  head(mat_QCheese,4), caption = 'Cheese production section energy requirements', "pipe", align = "lc", digits =2, booktabs = TRUE
+)
+```
+
+
+## Mesost production section 
+
+Mass and energy balance calculations for the cheese production section \@ref(fig:Mesost-section).
+Assumptions:  
+
+* Prem is 25% dry matter.  
+* Cream is 3% of total Mesost mass.  
+* During packaging the Mesost is assumed to loose 10°C.  
+
+```{r Mesost-section, echo=F, out.width='90%', fig.align='center', fig.cap='Mesost production section flowsheet'}
+knitr::include_graphics('Figures/Mesost.svg')
+```
+
+
+```{python get-json-data4, echo=F}
+from codes_01_energy_bill.coolprop_functions import load_states
+Mesost_data = load_states("codes_01_energy_bill/results/scenario1.json")
+S_Mesost = ["mt1", "mt2", "mt3", "mt4", "mt5",  "mt6", "mt7", "mt8"]
+H_Mesost = [Mesost_data[i]["enthalpy"] for i in S_Mesost]
+Mesost_energy = load_states("codes_01_energy_bill/results/energy_bill.json")
+Mesost_HEX = ["Q_MTHEX1","Q_MTHEX2"]
+Q_Mesost = [Mesost_energy[i] for i in Mesost_HEX]
+
+Mesost_streams = load_states("codes_01_energy_bill/results/streams.json")
+T_Mesost_streams = ["T_mt1", "T_mt2","T_mt3", "T_mt4", "T_mt5", "T_mt6", "T_mt7", "T_mt8"]
+T_Mesost = [Mesost_streams[i] for i in T_Mesost_streams]
+
+P_Mesost_streams = ["P_mt1", "P_mt2","P_mt3", "P_mt4", "P_mt5", "P_mt6", "P_mt7", "P_mt8"]
+P_Mesost = [Mesost_streams[i] for i in P_Mesost_streams]
+
+M_Mesost_streams = ["M_mt1", "M_mt2","M_mt3", "M_mt4", "M_mt5", "M_mt6", "M_mt7", "M_mt8"]
+M_Mesost = [Mesost_streams[i] for i in M_Mesost_streams]
+
+```
+
+```{r}
+
+S_Mesost = py$S_Mesost
+M_Mesost = round(py$M_Mesost*3600, digits = 2)
+T_Mesost = round(py$T_Mesost, digits = 2)
+P_Mesost = py$P_Mesost
+H_Mesost = (py$H_Mesost)/1000
+H_Mesost = round(H_Mesost, digits = 2)
+T_Mesost = round(T_Mesost, digits = 2)
+H_Mesost = format (H_Mesost,big.mark = ",")
+Q_Mesost = (py$Q_Mesost)/1000
+Q_Mesost = round(Q_Mesost, digits = 2)
+Q_mesost_total = sum(Q_Mesost[c(1)])
+Q_cool_mesost_total = sum(Q_Mesost[c(2)])
+Q_Mesost = format (Q_Mesost,big.mark = ",")
+mat_QMesost= matrix (c(Q_Mesost) , ncol = 1, nrow = 2, byrow = T)
+mat_Mesost = matrix(c(S_Mesost, M_Mesost, T_Mesost, P_Mesost, H_Mesost), ncol=5, nrow=8,byrow=F)
+colnames (mat_Mesost) = c("Stream name", "Flowrate [kg/h]", "Temperature [K]", "Pressure [Pa]", "Enthalpy [kJ/kg]")
+rownames (mat_QMesost) = c("Q_MTHEX1","Q_MTHEX2")
+
+colnames (mat_QMesost) = c("Load [kW]")
+```
+
+```{r Mesost-Streams, tidy=TRUE}
+knitr::kable(
+  head(mat_Mesost,8), caption = 'Mesost Production section streams', "pipe", align = "lcccc", digits =2, booktabs = TRUE
+)
+```
+
+```{r Mesost-Heat, tidy=TRUE}
+knitr::kable(
+  head(mat_QMesost,2), caption = 'Mesost production section energy requirements', "pipe", align = "lc", digits =2, booktabs = TRUE
+)
+```
+
+```{python}
+M_cream_market = M_PAST[15] - M_Mesost[4]
+T_cream_market = T_PAST[15]
+P_cream_market = P_PAST[15]
+
+```
+
+Part of the cream produced is sent to Mesost production section, the rest is sent to market this is equal to: `r round(py$M_cream_market*3600, 2)` kg/h.
+
+
+## Cleaning in place and hot and cold storage sections 
+
+Mass and energy balance calculations for the cleaning in place section \@ref(fig:CIP-section) and cold storage and hot water \@ref(fig:hot-cold-storage_section).
+Assumptions:  
+
+* For safety purposes the glass needs to contact with water which is at least 65°C. 
+
+* Each glass bottle weighs 370 g and has 500 ml capacity.  
+
+* Cp of glass is 753 J/kg°C and Cp of cooling water is 4200 J/kg°C.  
+
+```{r CIP-section, echo=F, out.width='90%', fig.align='center', fig.cap='Cleaning in place section flowsheet'}
+knitr::include_graphics('Figures/CIP.svg')
+```
+
+
+```{python get-json-data5, echo=F}
+from codes_01_energy_bill.coolprop_functions import load_states
+CIP_data = load_states("codes_01_energy_bill/results/scenario1.json")
+S_CIP = ["CIP1","CIP2", "CIP3", "CIP4", "CIP5", "CIP6", "CIP7", "CIP10", "CIP12"]
+H_CIP = [CIP_data[i]["enthalpy"] for i in S_CIP]
+CIP_energy = load_states("codes_01_energy_bill/results/energy_bill.json")
+CIP_HEX = ["Q_CIPHEX","Q_CIP_cooling"]
+Q_CIP = [CIP_energy[i] for i in CIP_HEX]
+
+CIP_streams = load_states("codes_01_energy_bill/results/streams.json")
+T_CIP_streams = ["T_CIP1","T_CIP2", "T_CIP3", "T_CIP4", "T_CIP5", "T_CIP6", "T_CIP7", "T_CIP10", "T_CIP12"]
+T_CIP = [CIP_streams[i] for i in T_CIP_streams]
+
+P_CIP_streams = ["P_CIP1","P_CIP2", "P_CIP3", "P_CIP4", "P_CIP5", "P_CIP6", "P_CIP7", "P_CIP10", "P_CIP12"]
+P_CIP = [CIP_streams[i] for i in P_CIP_streams]
+
+M_CIP_streams = ["M_CIP1","M_CIP2", "M_CIP3", "M_CIP4", "M_CIP5", "M_CIP6", "M_CIP7", "M_CIP10", "M_CIP12"]
+M_CIP = [CIP_streams[i] for i in M_CIP_streams]
+
+
+
+```
+
+```{r}
+S_CIP = py$S_CIP
+T_CIP = py$T_CIP
+P_CIP = py$P_CIP
+H_CIP = (py$H_CIP)/1000
+H_CIP = round(H_CIP, digits = 2)
+T_CIP = round(T_CIP, digits = 2)
+H_CIP = format (H_CIP,big.mark = ",")
+M_CIP = round(py$M_CIP*3600, digits = 2)
+Q_CIP = (py$Q_CIP)/1000
+Q_CIP = round(Q_CIP, digits = 2)
+Q_CIP_total = sum(Q_CIP[c(1)])
+Q_cool_CIP_total = sum(Q_CIP[c(2)])
+Q_CIP = format (Q_CIP,big.mark = ",")
+mat_QCIP= matrix (c(Q_CIP) , ncol = 1, nrow = 2, byrow = T)
+mat_CIP = matrix(c(S_CIP, M_CIP, T_CIP, P_CIP, H_CIP), ncol=5, nrow=9,byrow=F)
+colnames (mat_CIP) = c("Stream name", "Flowrate [kg/h]", "Temperature [K]", "Pressure [Pa]", "Enthalpy [kJ/kg]")
+rownames (mat_QCIP) = c("Q_CIPHEX","Q_CIP_cooling")
+
+colnames (mat_QCIP) = c("Load [kW]")
+```
+
+```{r Cleaning-in-Place-Streams, tidy=TRUE}
+knitr::kable(
+  head(mat_CIP, 9), caption = 'Cleaning in place section streams', "pipe", align = "lcccc", digits =2, booktabs = TRUE
+)
+```
+
+```{r CIP-Heat, tidy=TRUE}
+knitr::kable(
+  head(mat_QCIP,4), caption = 'Cleaning in place section energy requirements', "pipe", align = "lc", digits =2, booktabs = TRUE
+)
+```
+
+## Wastwater treatment section
+
+Mass and energy balance calculations for the wastewater treatment section \@ref(fig:Wastewater-section).
+Assumptions:      
+
+* Wastewater streams being treated in the plant include M_e23 from evaporation section and M_c10 from cheese production section.    
+
+* 95% decanter/filter efficiency and 75% moisture content of sludge.
+
+```{r Wastewater-section, echo=F, out.width='90%', fig.align='center', fig.cap='Wastewater treatment section flowsheet'}
+knitr::include_graphics('Figures/Wastewater.svg')
+```
+
+
+```{python}
+dw_streams = load_states("codes_01_energy_bill/results/streams.json")
+T_dw_streams = ["T_dw1", "T_dw2", "T_dw3"]
+T_dw = [dw_streams[i] for i in T_dw_streams]
+
+
+M_dw_streams = ["M_dw1", "M_dw2", "M_dw3"]
+M_dw = [dw_streams[i] for i in M_dw_streams]
+
+
+DM_dw_streams = ["DM_dw1", "DM_dw2", "DM_dw3"]
+DM_dw = [dw_streams[i] for i in DM_dw_streams]
+```
+
+
+```{r}
+S_dw = c("Wastewater", "Discharge", "Sludge")
+M_dw = round(py$M_dw*3600, digits = 2)
+DM_dw = round(py$DM_dw, digits = 4)
+
+mat_dw = matrix(c(S_dw, M_dw, DM_dw), ncol=3, nrow=3,byrow=F)
+colnames (mat_dw) = c("Stream name", "Flowrate [kg/h]", "Dry matter ")
+```
+
+```{r Wastewater-Streams, tidy=TRUE}
+knitr::kable(
+  head(mat_dw, 3), caption = 'Wastewater section streams', "pipe", align = "lcc", digits =2, 
+  booktabs = TRUE
+)
+```
+## Rivella production 
+
+Mass and energy balance calculations for the Rivella production section \@ref(fig:Rivella_section). Whey, also knows as Lactoserum was for long regarded as a waste from milk production. In 1953 a Swiss company decided to use it as it's base for producing a refreshing drink; nowadays commercially known as Rivella. The process is illustrated in \@ref(fig:Rivella-section). Assumptions include:
+
+* 70% of concentrated whey is used for Rivella Rouge production; the remaining is for Rivella Vert. 
+
+* 2g of Aromes/Secret ingredients are used for each 100g of inlet whey.  
+
+* Composition(wt.) Rivella Rouge: 30% whey, 35% water, 35% sugar. 
+
+* Composition(wt.) Rivella Vert: 30% whey, 50% water, 20% sugar.  
+
+* Both Rivellas are sold in 500ml glass bottles, which enter at 40°C; CO2 is injected to saturate the beverage at a concentration of 6 kgCO2 /m3 of Rivella where the bottles are slightly pressurized to trap the CO2 in solution.   
+
+* The flowrate of Bacteria entering the fermentation is negligible (bacteria does not leave the fermentation bath).  
+
+* The flowrate of green tea extract is negligible.
+
+* Cp of sugar is 1.224 kJ/kg°C.  
+
+* Cp of CO2 is 0.849 kJ/kg°C.  
+
+```{r Rivella-section, echo=F, out.width='90%', fig.align='center', fig.cap='Rivella production section flowsheet'}
+knitr::include_graphics('Figures/Rivella.svg')
+```
+
+
+```{python get-json-data6, echo=F}
+from codes_01_energy_bill.coolprop_functions import load_states
+Rivella_data = load_states("codes_01_energy_bill/results/scenario1.json")
+S_Rivella = ["R1", "R3", "R5", "R6", "R7", "R8", "R10", "R11", "R12", "R13", "R14","R15", "R16", "R17", "R18", "R19", "R20", "R21","R22", "R23"]
+H_Rivella = [Rivella_data[i]["enthalpy"] for i in S_Rivella]
+Rivella_energy = load_states("codes_01_energy_bill/results/energy_bill.json")
+Rivella_HEX = ["Q_R_evap", "Q_RHEX1", "Q_E8","Q_E9"]
+Q_Rivella = [Rivella_energy[i] for i in Rivella_HEX]
+
+Rivella_streams = load_states("codes_01_energy_bill/results/streams.json")
+T_Rivella_streams = ["T_R1", "T_R3", "T_R5", "T_R6", "T_R7", "T_R8", "T_R10", "T_R11", "T_R12", "T_R13", "T_R14","T_R15", "T_R16", "T_R17", "T_R18", "T_R19", "T_R20", "T_R21","T_R22", "T_R23"]
+T_Rivella = [Rivella_streams[i] for i in T_Rivella_streams]
+
+P_Rivella_streams = ["P_R1", "P_R3", "P_R5", "P_R6", "P_R7", "P_R8", "P_R10", "P_R11", "P_R12", "P_R13", "P_R14","P_R15", "P_R16", "P_R17", "P_R18", "P_R19", "P_R20", "P_R21","P_R22", "P_R23"]
+P_Rivella = [Rivella_streams[i] for i in P_Rivella_streams]
+
+M_Rivella_streams = ["M_R1", "M_R3", "M_R5", "M_R6", "M_R7", "M_R8", "M_R10", "M_R11", "M_R12", "M_R13", "M_R14","M_R15", "M_R16", "M_R17", "M_R18", "M_R19", "M_R20", "M_R21","M_R22", "M_R23"]
+M_Rivella = [Rivella_streams[i] for i in M_Rivella_streams]
+
+```
+
+
+```{r}
+
+S_Rivella = py$S_Rivella
+M_Rivella = round(py$M_Rivella*3600, digits = 2)
+T_Rivella = round(py$T_Rivella, digits = 2)
+P_Rivella = py$P_Rivella
+H_Rivella = (py$H_Rivella)/1000
+H_Rivella = round(H_Rivella, digits = 2)
+H_Rivella = format (H_Rivella,big.mark = ",")
+Q_Rivella = (py$Q_Rivella)/1000
+Q_Rivella = round(Q_Rivella, digits = 2)
+Q_rivella_total = sum(Q_Rivella[c(1)])
+Q_cool_rivella_total = sum(Q_Rivella[c(2,3,4)])
+Q_Rivella = format (Q_Rivella,big.mark = ",")
+mat_QRivella= matrix (c(Q_Rivella) , ncol = 1, nrow = 4, byrow = T)
+mat_Rivella = matrix(c(S_Rivella, M_Rivella, T_Rivella, P_Rivella, H_Rivella), ncol=5, nrow=20,byrow=F)
+colnames (mat_Rivella) = c("Stream name", "Flowrate [kg/h]", "Temperature [K]", "Pressure [Pa]", "Enthalpy [kJ/kg]")
+rownames (mat_QRivella) = c("Q_R_evap", "Q_RHEX1", "Q_E8","Q_E9")
+
+colnames (mat_QRivella) = c("Load [kW]")
+```
+
+```{r Rivella-Streams, tidy=TRUE}
+knitr::kable(
+  head(mat_Rivella,20), caption = 'Rivella Production section streams', "pipe", align = "lcccc", digits =2, booktabs = TRUE
+)
+```
+
+```{r Rivella-Heat, tidy=TRUE}
+knitr::kable(
+  head(mat_QRivella,4), caption = 'Rivella production section energy requirements', "pipe", align = "lc", digits =2, booktabs = TRUE
+)
+```
+
+
+## Anaerobic treatment 
+
+Mass and energy balance calculations for the biogas production section \@ref(fig:Biogas_section). Sludge and/or whey can be regarded as wastes from the process perspective. However, both of them have a certain potential to produce biogas, depending on several factors such as composition, relative atomic quantities, moisture level, etc. Biomethan Potential (BMP) is the theoretical amount of methane produced out of a given substrate - reachable for infinite residence times.  
+As a simplification, bio-degradable waste is decomposed according to a first order kinetics 
+(Biowaste --> Biogas + Digestate):
+
+$\frac{d[Biowaste]}{dt} = -k[Biowaste] \leftrightarrow Biogas (t) = [Biowaste]_0 (1-e^{-kt})$
+
+$Biomethane (t) = \sum_{i=1}^{n} Flow(i) BMP(i) TS(i) VS(i) (1-e^{-k_it})$
+
+Where i refers to the component being digested, TS to Total Solids, VS to Volatile Solids and k to the kinetic constant. Heat needs to be supplied to maintain thermophillic conditions.
+
+The process is illustrated in \@ref(fig:Biogas-section). Assumptions include:  
+
+* Whey characteristics from @holligerMethaneProductionFullScale2017: TS = 7.7%, VS = 51.4%, BMP = 526 $NL_{CH4}kg_{vs}^{-1}$ OR 20.9 $NL_{CH4}kg_{ww}^{-1}$.    
+* Sludge characteristics also from @holligerMethaneProductionFullScale2017: TS = 3.7%, VS = 74.2%, BMP = 407 $NL_{CH4}kg_{vs}^{-1}$ OR 11.1 $NL_{CH4}kg_{ww}^{-1}$.    
+* Anaerobic digestion residence time is 20 days (i.e. 480 hours).     
+* 90% conversion for the given residence time.    
+* Digester temperature: 55°C.    
+* Inlet temperature and average external temperature: 20°C.    
+* $U_{digester} = 0.0025 \frac {kW}{m^2 °C}$.  
+* Ratio H/D of digester: 0.6, minimum biogas expansion volume: 15%, $CH4_{biogas} = 55\%$.    
+* Density of biogas is 1.15 $\frac{kg}{m^3}$.  
+* Extra super heated steam is used in the dryer and leaves also as slightly super heated steam. 
+* Digestate can be sold as fertilizer substitute due to it's high organic load. However, it needs to reach 95°C to kill pathogens; simultaneously it loses water, yielding a dried product. Steam is directly used in a counter-Current dryer.  
+
+```{r Biogas-section, echo=F, out.width='90%', fig.align='center', fig.cap='Biogas production section flowsheet'}
+knitr::include_graphics('Figures/Digester.svg')
+```
+
+
+
+
+```{python get-json-data7, echo=F}
+from codes_01_energy_bill.coolprop_functions import load_states
+Digester_data = load_states("codes_01_energy_bill/results/scenario1.json")
+S_Digester = ["d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8"]
+H_Digester = [Digester_data[i]["enthalpy"] for i in S_Digester]
+Digester_energy = load_states("codes_01_energy_bill/results/energy_bill.json")
+Digester_HEX = ["Q_digester", "Q_steamdryer"]
+Q_Digester = [Digester_energy[i] for i in Digester_HEX]
+
+Digester_streams = load_states("codes_01_energy_bill/results/streams.json")
+T_Digester_streams = ["T_d1", "T_d2", "T_d3", "T_d4", "T_d5", "T_d6", "T_d7", "T_d8"]
+T_Digester = [Digester_streams[i] for i in T_Digester_streams]
+
+P_Digester_streams = ["P_d1", "P_d2", "P_d3", "P_d4", "P_d5", "P_d6", "P_d7", "P_d8"]
+P_Digester = [Digester_streams[i] for i in P_Digester_streams]
+
+M_Digester_streams = ["M_d1", "M_d2", "M_d3", "M_d4", "M_d5", "M_d6", "M_d7", "M_d8"]
+M_Digester = [Digester_streams[i] for i in M_Digester_streams]
+
+V_digester = Digester_streams["V_digester"]
+gasification_ratio = Digester_streams["gasification_ratio"]
+
+```
+
+```{r}
+
+S_Digester = py$S_Digester
+M_Digester = round(py$M_Digester*3600, digits = 2)
+T_Digester = py$T_Digester
+P_Digester = py$P_Digester
+H_Digester = (py$H_Digester)/1000
+H_Digester = round(H_Digester, digits = 2)
+H_Digester = format (H_Digester,big.mark = ",")
+Q_Digester = (py$Q_Digester)/1000
+Q_Digester = round(Q_Digester, digits = 2)
+Q_digester_total = sum(Q_Digester[c(1,2)])
+Q_cool_digester_total = 0
+Q_Digester = format (Q_Digester,big.mark = ",")
+mat_QDigester= matrix (c(Q_Digester) , ncol = 1, nrow = 2, byrow = T)
+mat_Digester = matrix(c(S_Digester, M_Digester, T_Digester, P_Digester, H_Digester), ncol=5, nrow=8,byrow=F)
+colnames (mat_Digester) = c("Stream name", "Flowrate [kg/h]", "Temperature [K]", "Pressure [Pa]", "Enthalpy [kJ/kg]")
+rownames (mat_QDigester) = c("Q_digester", "Q_steamdryer")
+
+colnames (mat_QDigester) = c("Load [kW]")
+```
+
+```{r Digester-Streams, tidy=TRUE}
+knitr::kable(
+  head(mat_Digester,8), caption = 'Biogas Production section streams (anaerobic digestion)', "pipe", align = "lcccc", digits =2, booktabs = TRUE
+)
+```
+
+```{r Digester-Heat, tidy=TRUE}
+knitr::kable(
+  head(mat_QDigester,2), caption = 'Biogas production section energy requirements (anaerobic digestion)', "pipe", align = "lc", digits =2, booktabs = TRUE
+)
+```
+
+### Notes from code calculation sections
+
+Volume of the anaerobic digester is: `r round(py$V_digester,2) ` m^3. 
+gasification ratio of biogas produced to biomass feedstock is: `r round(py$gasification_ratio,2) ` kg/kg. 
+Heat needed to maintain thermophilic process conditions at 55°C is: `r round (py$Q_Digester[1]/1000, 2)` kW. 
+he heat load of the steam dryer is: `r round (py$Q_Digester[2]/1000, 2)` kW. This requires: `r round (py$M_Digester[7], 2)` kg/s of superheated steam that can evaporate the excess water content, heat the solid digestate to 95°C, and still leave as a slightly superheated stream. This stream along with anything leaving the system which is not in equilibrium with the environment at 25°C is recovered as a heat stream in RSOMOSE analysis.
+
+
+## Summary of energy requirements 
+
+### Heating and steam
+
+The heating requirements per section can be calculated by summing the relevant heat loads of all the heat exchangers in a given section. The mass flowrate of steam can then be estimated assuming Medium pressure steam at 3 bar was used as the heating utility and is assumed to enter all heat exchangers as saturated vapor and leave as saturated liquid with $\Delta h_{vaporization} = 2,164 \frac{kJ}{\ kg}$ and $T_{saturation}= 133.5°C$
+
+
+```{r, echo=FALSE}
+h_steam = 2164 #kJ/kg
+m_steam_past = Q_past_total/h_steam
+m_steam_evap = Q_evap_total/h_steam
+m_steam_cheese = Q_cheese_total/h_steam
+m_steam_mesost = Q_mesost_total/h_steam
+m_steam_CIP = Q_CIP_total/h_steam
+m_steam_rivella = Q_rivella_total/h_steam
+m_steam_digester = Q_digester_total/h_steam
+Q_dairy_total = Q_past_total + Q_evap_total + Q_cheese_total + Q_mesost_total + Q_CIP_total 
+
+
+mat_Dairy_steam = matrix (c(m_steam_past,m_steam_evap,m_steam_cheese,m_steam_mesost, m_steam_CIP, m_steam_rivella, m_steam_digester), ncol = 1, nrow = 7, byrow = T)
+
+rownames (mat_Dairy_steam) = c("Pasteurization","Evporation", "Cheese", "Mesost", "CIP", "Rivella", "Digester")
+
+colnames (mat_Dairy_steam) = c("Steam flowrate (kg/s)")
+
+
+```
+
+```{r Dairy-steam, tidy=TRUE}
+knitr::kable(
+  head(mat_Dairy_steam,7), caption = 'Dairy process steam requirements', "pipe", align = "lcccc", digits =2, booktabs = TRUE
+)
+```
+
+
+```{r}
+library(plotly)
+
+labels = c("Pasteurization", "Evporation", "Cheese", "Mesost", "CIP")
+values = c(Q_past_total, Q_evap_total, Q_cheese_total, Q_mesost_total, Q_CIP_total)
+
+fig <- plot_ly(type='pie', labels=labels, values=values, 
+               textinfo='label+percent',
+               insidetextorientation='radial')
+fig
+```
+### Cooling and Glycolic water requirements
+
+Glycolic water composition: 30 wt% propylene glycol, 70 wt% pure water $T_{freezing}= -14°C$ and the specific heat of the mixture is $C_{p,gw}= 3900 \frac{J}{\ kg.k}$ entering at -5°C and leaving at -1°C.
+
+$m_{gw}= \frac{Q_{gw}}{\ C_{p,gw}. (T_{out} - T_{in})}$
+
+Cooling water is available at 20°C with an allowed delta T of 5°C.
+
+
+```{r, echo=FALSE}
+Cp_gw = 3.9 #kJ/kg °C
+Tin = -5 #°C
+Tout = -1 #°C
+m_gw_past = -Q_cool_past_total/(Cp_gw*(Tout-Tin))
+m_gw_evap = -Q_cool_evap_total/(Cp_gw*(Tout-Tin))
+m_gw_cheese = -Q_cool_cheese_total/(Cp_gw*(Tout-Tin))
+m_gw_mesost = -Q_cool_mesost_total/(Cp_gw*(Tout-Tin))
+m_gw_cip = 0
+m_gw_rivella = -Q_cool_rivella_total/(Cp_gw*(Tout-Tin))
+m_gw_digester = -Q_cool_digester_total/(Cp_gw*(Tout-Tin))
+
+#assume cooling water is available at 20°C with an allowed deltaT of 5°C
+
+Cp_cooling_water = 4.2 #kJ/kg°C
+
+m_CIP_cooling_water = -Q_cool_CIP_total / (Cp_cooling_water * (25-20))
+
+
+mat_Dairy_gw = matrix (c(m_gw_past,m_gw_evap,m_gw_cheese,m_gw_mesost, m_gw_cip, m_gw_rivella, m_gw_digester), ncol = 1, nrow = 7, byrow = T)
+
+rownames (mat_Dairy_gw) = c("Pasteurization","Evporation", "Cheese", "Mesost", "CIP", "Rivella", "Digester")
+
+colnames (mat_Dairy_gw) = c("Glycolic water flowrate (kg/s)")
+
+
+```
+
+Cooling water is used only in the CIP section and based on the above estimates the required flowrate of cooling water is `r round(m_CIP_cooling_water,digits=2)` kg/s.
+
+
+```{r Dairy-glycolic, tidy=TRUE}
+knitr::kable(
+  head(mat_Dairy_gw,7), caption = 'Dairy process glycolic water cooling requirements', "pipe", align = "lcccc", digits =1, booktabs = TRUE
+)
+```
+
+
+
+
+## Calculating the energy bill for the French and German Market
+
+
+```{r}
+
+Units = c ("€/kWh", "€/kWh")
+France = c (0.115, 0.172)
+Germany = c (0.135, 0.319 )
+mat_Utilities = matrix(c(Units, France, Germany), ncol=3, nrow=2,byrow=F)
+colnames (mat_Utilities) = c("Units", "France", "Germany")
+rownames (mat_Utilities) = c("Fuel (natural gas)", "Electricity")
+
+```
+
+
+```{r Utility-Prices, tidy=TRUE}
+knitr::kable(
+  head(mat_Utilities,8), caption = 'Price of Utilities', "pipe", align = "ccc", digits =3, 
+  booktabs = TRUE
+)
+```
+### Cost of Natural Gas
+
+Assumptions include:  
+
+* The boiler takes saturated liquid at 133°C and 3 bar and produces saturated steam at the same conditions.    
+* Boiler efficiency $\eta_{boiler} = 0.85$.    
+* Latent heat of vaporization of steam at 2 bar 2202 kJ/kg.     
+* Price of gas in France  $c_{ng-fr} = 0.115 \frac{€}{kWh}$. 
+* Price of gas in Germany  $c_{ng-gr} = 0.135 \frac{€}{kWh}$. 
+
+Th natural gas requirement can then be calculated based on the heating loads estimated in the energy balance section as follows.
+
+$bill_{ng} = \frac{Q_H}{\eta_{boiler}}.C_{gas,i}.h_{operation}$
+
+
+```{r}
+h_oper = 8760 #operating hours per year
+c_ng_fr = 0.115 # €/kWh
+c_ng_gr = 0.135 # €/kWh
+n_boiler = 0.85
+
+bill_past_fr = Q_past_total*h_oper*c_ng_fr/(n_boiler*1000)
+bill_evap_fr = Q_evap_total*h_oper*c_ng_fr/(n_boiler*1000)
+bill_cheese_fr = Q_cheese_total*h_oper*c_ng_fr/(n_boiler*1000)
+bill_mesost_fr = Q_mesost_total*h_oper*c_ng_fr/(n_boiler*1000)
+bill_cip_fr = Q_CIP_total*h_oper*c_ng_fr/(n_boiler*1000)
+bill_rivella_fr = Q_rivella_total*h_oper*c_ng_fr/(n_boiler*1000)
+bill_digester_fr = Q_digester_total*h_oper*c_ng_fr/(n_boiler*1000)
+
+bill_past_gr = Q_past_total*h_oper*c_ng_gr/(n_boiler*1000)
+bill_evap_gr = Q_evap_total*h_oper*c_ng_gr/(n_boiler*1000)
+bill_cheese_gr = Q_cheese_total*h_oper*c_ng_gr/(n_boiler*1000)
+bill_mesost_gr = Q_past_total*h_oper*c_ng_gr/(n_boiler*1000)
+bill_cip_gr = Q_CIP_total*h_oper*c_ng_gr/(n_boiler*1000)
+bill_rivella_gr = Q_rivella_total*h_oper*c_ng_gr/(n_boiler*1000)
+bill_digester_gr = Q_digester_total*h_oper*c_ng_gr/(n_boiler*1000)
+
+Dairy_sections = c("Pasteurization","Evporation", "Cheese", "Mesost", "CIP", "Rivella", "Digester")
+bill_france = round(c(bill_past_fr, bill_evap_fr, bill_cheese_fr, bill_mesost_fr, bill_cip_fr, bill_rivella_fr, bill_digester_fr), digits =0)
+bill_germany = round(c(bill_past_gr, bill_evap_gr, bill_cheese_gr, bill_mesost_gr, bill_cip_gr, bill_rivella_gr, bill_digester_gr), digits =0)
+  
+  
+  
+mat_gas_bill = matrix(c(Dairy_sections, bill_france , bill_germany), ncol=3, nrow=7,byrow=F)
+colnames(mat_gas_bill) = c("Section", "Price in France (k€/y)", "Price in Germany (k€/y)" )
+
+```
+
+
+```{r Gas-bill, tidy=TRUE}
+knitr::kable(
+  head(mat_gas_bill,7), caption = 'Gas utility bill', "pipe", align = "ccc", digits = 1, 
+  booktabs = TRUE
+)
+```
+
+### Cost of Electricity
+
+
+Assumptions include:  
+
+* COP of the refrigeration cycle $COP_{ref} = 0.7$. 
+* Price of electricity in France  $c_{elec-fr} = 0.172 \frac{€}{kWh}$. 
+* Price of electricity in Germany  $c_{elec-gr} = 0.319 \frac{€}{kWh}$. 
+
+Th electricity requirement can then be calculated based on the heating loads estimated in the energy balance section as follows.
+
+$bill_{elec} = \frac{Q_c}{COP_{ref}}.C_{elec,i}.h_{operation}$
+
+
+```{r}
+h_oper = 8760 #operating hours per year
+c_elec_fr = 0.172 # €/kWh
+c_elec_gr = 0.319 # €/kWh
+COP_ref = 0.7
+
+bill_past_elecfr = -Q_cool_past_total*h_oper*c_elec_fr/(COP_ref*1000)
+bill_evap_elecfr = -Q_cool_evap_total*h_oper*c_elec_fr/(COP_ref*1000)
+bill_cheese_elecfr = -Q_cool_cheese_total*h_oper*c_elec_fr/(COP_ref*1000)
+bill_mesost_elecfr = -Q_cool_mesost_total*h_oper*c_elec_fr/(COP_ref*1000)
+bill_cip_elecfr = 0
+bill_rivella_elecfr = -Q_cool_rivella_total*h_oper*c_elec_fr/(COP_ref*1000)
+bill_digester_elecfr = -Q_cool_digester_total*h_oper*c_elec_fr/(COP_ref*1000)
+
+bill_past_elecgr = -Q_cool_past_total*h_oper*c_elec_gr/(COP_ref*1000)
+bill_evap_elecgr = -Q_cool_evap_total*h_oper*c_elec_gr/(COP_ref*1000)
+bill_cheese_elecgr = -Q_cool_cheese_total*h_oper*c_elec_gr/(COP_ref*1000)
+bill_mesost_elecgr = -Q_cool_mesost_total*h_oper*c_elec_gr/(COP_ref*1000)
+bill_cip_elecgr = 0
+bill_rivella_elecgr = -Q_cool_rivella_total*h_oper*c_elec_gr/(COP_ref*1000)
+bill_digester_elecgr = -Q_cool_digester_total*h_oper*c_elec_gr/(COP_ref*1000)
+
+bill_elec_france = round(c(bill_past_elecfr, bill_evap_elecfr, bill_cheese_elecfr, bill_mesost_elecfr, bill_cip_elecfr, bill_rivella_elecfr, bill_digester_elecfr), digits =0)
+bill_elec_germany = round(c(bill_past_elecgr, bill_evap_elecgr, bill_cheese_elecgr, bill_mesost_elecgr, bill_cip_elecgr, bill_rivella_elecgr, bill_digester_elecgr), digits =0)
+  
+  
+mat_elec_bill = matrix(c(Dairy_sections, bill_elec_france , bill_elec_germany), ncol=3, nrow=7,byrow=F)
+colnames(mat_elec_bill) = c("Section", "Price in France (k€/y)", "Price in Germany (k€/y)" )
+
+```
+
+
+
+```{r Electricity-bill, tidy=TRUE}
+knitr::kable(
+  head(mat_elec_bill,7), caption = 'Electricity utility bill', "pipe", align = "ccc", digits = 1, 
+  booktabs = TRUE
+)
+```

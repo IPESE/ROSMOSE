@@ -1,0 +1,301 @@
+---
+title: "Dairy Process Optimization"
+author:
+  - "EPFL IPESE"
+unitname:
+  faculty: School of Engineering
+  institute: Mechanical Engineering
+  laboratory: Industrial Process and Energy Systems Engineering
+advisor: François Maréchal
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+    html:
+        theme: simplex
+        toc_depth: 3
+        toc: true
+        toc_float: true
+        collapse: true
+        smooth_scroll: true
+        dev: svg
+        code_folding: hide
+        number_sections: true
+        mathjax: default
+        fig-format: svg
+venv: "../venv"
+---
+
+```{r setup, warning = F, results = "hide", message=F}
+source("../rosmose-setup.R", local = knitr::knit_global())
+```
+
+# Introduction {-}
+
+This report presents ROSMOSE integration results of various scenarios studying the dairy process including it's heat integration, valorization of certain waste products, utilization of different technologies such as heat pumps and refrigerators, and optimization of the overall process to minimize cost and maximize revenue. 
+
+# Problem Definition {-}
+
+This project will use a model named **DairyProcess**.
+
+A dairy process optimization run can include the following unit configurations:
+
+* Dairy Process: Pasteurization, evaporation, cheese, mesost, cleaning-in-place, wastewater treatment, and disposal. 
+
+* Other options for utilization of whey stream: soft drink or biogas production.
+
+* Utilities: Furnace, cooling tower, refrigeration, heatpumps, and cogeneration units.
+
+
+
+```{r child = 'model/DairyProcess/DairyProcess.rmd'}
+```
+
+## Visualization of Dairy Process {-}
+
+
+```{rosmose display et, fig.cap="dairyprocess-visualize", out.height="80%"}
+: OSMOSE DISPLAY_ET dairyprocess
+```
+
+```{r child = 'model/CoolingTower/CoolingTower.Rmd'}
+```
+
+```{rosmose display coolingtower, fig.cap="coolingtower-visualize", out.height="80%"}
+: OSMOSE DISPLAY_ET coolingtower
+```
+
+Furnace
+```{r child = 'model/Furnace/Furnace.Rmd'}
+```
+
+```{rosmose display furnace, fig.cap="furnace-visualize", out.height="80%"}
+: OSMOSE DISPLAY_ET furnace
+ ```
+
+<!-- ```{r child = 'model/Heatpump/Heatpump.Rmd'} -->
+<!-- ``` -->
+
+<!-- ```{rosmose display heatpump, fig.cap="heatpump-visualize", out.height="80%"} -->
+<!-- : OSMOSE DISPLAY_ET heatpump -->
+<!-- ``` -->
+
+<!-- ```{r child = 'model/Heatpump/Heatpump2.Rmd'} -->
+<!-- ``` -->
+
+<!-- ```{rosmose display heatpump2, fig.cap="heatpump2-visualize", out.height="80%"} -->
+<!-- : OSMOSE DISPLAY_ET heatpump2 -->
+<!-- ``` -->
+
+<!-- ```{r child = 'model/Heatpump/Heatpump3.Rmd'} -->
+<!-- ``` -->
+
+<!-- ```{rosmose display heatpump3, fig.cap="heatpump3-visualize", out.height="80%"} -->
+<!-- : OSMOSE DISPLAY_ET heatpump3 -->
+<!-- ``` -->
+
+<!-- ```{r child = 'model/Heatpump/Heatpump4.Rmd'} -->
+<!-- ``` -->
+
+<!-- ```{rosmose display heatpump4, fig.cap="heatpump4-visualize", out.height="80%"} -->
+<!-- : OSMOSE DISPLAY_ET heatpump4 -->
+<!-- ``` -->
+
+
+<!-- ```{r child = 'model/Heatpump/Heatpump5.Rmd'} -->
+<!-- ``` -->
+
+<!-- ```{rosmose display heatpump5, fig.cap="heatpump5-visualize", out.height="80%"} -->
+<!-- : OSMOSE DISPLAY_ET heatpump5 -->
+<!-- ``` -->
+
+<!-- ```{r child = 'model/Cogeneration/cogen.Rmd'} -->
+<!-- ``` -->
+
+<!-- ```{rosmose display cogen, fig.cap="Cogeneration-visualize", out.height="80%"} -->
+<!-- : OSMOSE DISPLAY_ET cogen -->
+<!-- ``` -->
+
+
+```{r child = 'model/Refrigerator/Refrigerator.Rmd'}
+```
+
+```{rosmose display refrigerator, fig.cap="refrigerator-visualize", out.height="80%"}
+: OSMOSE DISPLAY_ET refrigerator
+```
+
+```{r child = 'model/Market/Market.Rmd'}
+```
+
+```{rosmose display market, fig.cap="market-visualize", out.height="80%"}
+: OSMOSE DISPLAY_ET market
+```
+
+
+
+
+
+<!-- ```{rosmose configure solver gurobi}
+: OSMOSE OPTIONS mathProg
+
+| Property       | Value         | Comments |
+|:---------------|:--------------|:---------|
+| language       | ampl          |          |
+| solver         | gurobi        |          |
+| solver_options | {}            |          |
+```
+ -->
+
+
+
+<!-- ```{rosmose configure solver cbc}
+: OSMOSE OPTIONS mathProg
+
+| Property    | Value         | Comments |
+|:------------|:--------------|:---------|
+| language    | ampl          |          |
+| solver_name | cbc           |          |
+``` -->
+
+
+```{rosmose solve-osmose}
+! OSMOSE SOLVE dairy TotalCost [dairyprocess, market, furnace, coolingtower, refrigerator]
+
+#! OSMOSE SOLVE dairy TotalCost [dairyprocess,market, coolingtower, heatpump, heatpump2, heatpump3, heatpump4, cogen]
+
+#! OSMOSE SOLVE dairy TotalCost [dairyprocess,market, coolingtower, heatpump, heatpump2, heatpump3, heatpump4]
+
+|name   |value|
+|:------|:----|
+|op_time|8760 |
+```
+
+<!-- The following code chunck can be used in case of sealizing the models to generate OSMOSE lua files that enable debugging the system -->
+
+<!-- ```{rosmose}
+#! OSMOSE SERIALIZE_PROJECT dairy TotalCost [dairyprocess,market, furnace, coolingtower, refrigerator]
+
+#! OSMOSE SERIALIZE_PROJECT dairy TotalCost [dairyprocess,market, coolingtower, heatpump, heatpump2, heatpump3, heatpump4, cogen]
+
+#! OSMOSE SERIALIZE_PROJECT dairy TotalCost [dairyprocess,market, coolingtower, heatpump, heatpump2, heatpump3, heatpump4]
+``` -->
+
+<!-- The following code is used to retrieve the data of the generated JSON file -->
+
+```{r, eval=T, echo=FALSE} 
+library(jsonlite)
+pfilename<-"result/dairy-2.json"
+data <- fromJSON(pfilename, flatten=FALSE)
+```
+
+<!-- The following code is about reporting the optimization results and plotting the pertinent plots for the corresponding optimization scenarios -->
+
+# Optimization Results {-}
+
+## Capital and Operational Expenditures {-}
+
+```{r print economic results, echo=FALSE}
+cat("CAPEX:", data$results$KPIs$capex)
+cat("OPEX:", data$results$KPIs$opex)
+```
+
+## Plots {-}
+
+**Integrated Composite Curve**
+
+```{r icc , echo=FALSE}
+display_icc <- function(time=1){
+  graphs <- data$results$graph[[1]]
+  graph <- graphs[[time]]
+  graph <- graph[graph$plot_type == "icc.utilities",]$data[[1]]
+  base <- graph[graph$title == "base",]$curve[[1]]
+  utilities <- graph[graph$title == "utilities",]$curve[[1]]
+
+  if (!is_empty(base) && !is_empty(utilities)){
+    plot_ly() %>%
+            add_trace(x=base$Q, y=base$T-273.15, mode = 'lines', line=list(color='red'),  name='base') %>%
+            add_trace(x=utilities$Q, y=utilities$T-273.15, mode = 'lines', line=list(color='blue'),  name='utilities') %>%
+            layout(xaxis= list(title = "Heat load [kW]"),
+                   yaxis= list(title = "Corrected Temperature [°C]"),
+                   margin= list(l=50, r=20, b=40, t=40),
+                   yaxis2 = list(overlaying = "y", side = "right", title = 'Carnot factor 1-To/T [-]'),
+                   title = "Integrated Composite Curve"
+            )
+
+  } else {
+    print(paste("There is no ICC for timestep", time))
+  }
+}
+
+display_icc()
+```
+
+**Thermal Exergy of Integrated Utilities**
+
+```{r carnot , echo=FALSE}
+display_carnot <- function(time=1){
+  graphs <- data$results$graph[[1]]
+  graph <- graphs[[time]]
+  graph <- graph[graph$plot_type == "carnot.utilities",]$data[[1]]
+  base <- graph[graph$title == "base",]$curve[[1]]
+  utilities <- graph[graph$title == "utilities",]$curve[[1]]
+
+  if (!is_empty(base) && !is_empty(utilities)){
+    plot_ly() %>%
+            add_trace(x=base$Q, y=base$T, mode = 'lines', line=list(color='red'), name='base') %>%
+            add_trace(x=utilities$Q, y=utilities$T, mode = 'lines', line=list(color='blue'),  name='utilities') %>%
+            layout(xaxis= list(title = "Heat load [kW]"),
+                   yaxis= list(title = "Carnot factor 1-To/T [-]"),
+                   margin= list(l=50, r=20, b=40, t=40),
+                   title = "Thermal Exergy of Integrated Utilities"
+            )
+
+  } else {
+    print(paste("There is no Carnot for timestep", time))
+  }
+}
+
+display_carnot(1)
+```
+
+
+## Heat Exchanger Network {-}
+
+The heat exchanger network area required to attain the minimum energy requirement is extracted from OSMOSE optimization results.
+The minimum number of heat exchangers for the network and average area per heat exchanger can also be calculated from the simulation outputs.
+Next the cost of this heat exchanger network can be computed based on the equations published in Turton 1998 and corrected by the chemical engineering plant cost index (CEPCI) for 2023.
+
+```{r, echo=FALSE}
+get_HEN <- function () {
+  spag_area <- data$results$spaghetti[[1]]$Clu$DefaultHeatCascade$area_total
+  min_number_HEX <- data$results$spaghetti[[1]]$Clu$DefaultHeatCascade$HEs
+  hex_area <- spag_area / min_number_HEX
+  n <- 15 # years, lifetime of a heat exchanger
+  i <- 0.05 # fractional interest rate per year
+  an_factor <- (i*(1+i)^n/((1+i)^n-1))
+  k1 <- 3.2138
+  k2 <- 0.2685
+  k3 <- 0.07961
+  Fp <- (10^(k1+ k2*log10(hex_area)+ k3*(log10(hex_area))^2))
+  Fm <- 3 #stainless steel shell and tube
+  B1 <- 1.8
+  B2 <- 1.5
+  F_BM <- (B1+(B2*Fm*Fp))
+  CEPCI_1998 <- 382
+  CEPCI_2023 <- 600
+  c_hen <- (F_BM*(CEPCI_2023/CEPCI_1998)*an_factor*min_number_HEX)
+  return(list("hen_area" = spag_area,"min_number_HEX" = min_number_HEX ,"hex_area" = hex_area, "an_factor" = an_factor, "c_hen"= c_hen))
+}
+
+hen <- get_HEN()
+```
+
+
+Heat exchanger network area: `r hen$hen_area` m^2^.
+
+Minimum number of heat exchangers: `r hen$min_number_HEX`.
+
+Average area per heat exchanger: `r hen$hex_area` m^2^.
+
+Annualized cost of heat exchanger network: `r hen$c_hen` $/y.
+
+Annualization factor: `r hen$an_factor`.
+

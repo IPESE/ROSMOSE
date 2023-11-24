@@ -1,0 +1,73 @@
+```{rosmose}
+! OSMOSE ET spco2
+```
+
+```{rosmose} 
+T_evap_0 = 65 [C] #95 [C]
+T_evap_1 = 53.5 [C] #70 [C]
+T_evap_2 = 45 [C] #57 [C]
+T_evap_3 = 36.5 [C] #43 [C]
+T_evap_4 = 23 [C] #16 [C]
+T_cond = 17.5 [C]
+
+Q_evap = 168 [kW]
+
+Q_cond_01 = 40 [kW] #50 [kW]
+Q_cond_12 = 50 [kW]
+Q_cond_23 = 50 [kW]
+Q_cond_34 = 50 [kW] #70 [kW]
+
+dtmin_2ph = 2.5 [C] # phase-change delta t mininum
+```
+
+```{rosmose} 
+COPcarnot = (%Cond_Tin% + 273) / (%Cond_Tin% - %Evap_Tin%) [-] # Carnot COP 
+COP = %exeff% * %COPcarnot% [-] # Actual COP
+W_heatpump = %Q_cond_01% + %Q_cond_12% + %Q_cond_23% + %Q_cond_34% - %Q_evap% [kW] # Heat pump power consumption
+```
+
+```{rosmose} 
+: OSMOSE LAYERS spco2
+
+|Layer      |Display name|shortname |Unit   |Color  |
+|:----------|:-----------|:---------|:------|:------|
+|ELECTRICITY|Electricity |elec      |kW     |yellow |
+```
+
+```{rosmose} 
+: OSMOSE UNIT spco2
+
+|unit name  |type     |
+|:----------|:--------|
+|spco2      |Utility  |
+```
+
+```{rosmose}
+: OSMOSE UNIT_PARAM spco2
+
+|cost1  |cost2  |cinv1  |cinv2  |imp1   |imp2   |fmin   |fmax   |
+|:------|:------|:------|:------|:------|:------|:------|:------|
+|0      |0      |0      |0      |0      |0      |0        |10000  |
+```
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS spco2
+
+|layer      |direction|value                |
+|:----------|:--------|:--------------------|
+|ELECTRICITY| in      |%W_heatpump%         |
+```
+
+```{rosmose}
+: OSMOSE HEAT_STREAMS spco2
+
+|name           |Tin        |Tout       |Hin        |Hout       |DT min/2   |alpha|
+|:--------------|:----------|:----------|:----------|:----------|:----------|:----|
+|c1             |%T_evap_0% |%T_evap_1% |%Q_cond_01%|0           |%dtmin_2ph%|1    |
+|c2             |%T_evap_1% |%T_evap_2% |%Q_cond_12%|0           |%dtmin_2ph%|1    |
+|c3             |%T_evap_2% |%T_evap_3% |%Q_cond_23%|0           |%dtmin_2ph%|1    |
+|c4             |%T_evap_3% |%T_evap_4% |%Q_cond_34%|0           |%dtmin_2ph%|1    |
+|e              |%T_cond%   |%T_cond%   |0          |%Q_evap%    |%dtmin_2ph%|1    |
+```
+
+
