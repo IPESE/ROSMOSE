@@ -1,0 +1,162 @@
+#Daniel Florez-Orrego
+#daniel.florezorrego@epfl.ch
+# EPFL - IPESE
+
+import openpyxl
+
+et_name = 'MyET'
+
+# Load the Excel file
+wb = openpyxl.load_workbook(et_name+'.xlsx')
+
+# Generate the Rmd content
+rmd_content = f"# {et_name}\n\n```{{rosmose}}\n! OSMOSE ET {et_name}\n```\n\n"
+
+
+
+################################################## Process LAYERS tab #####################################
+layers_sheet = wb['LAYERS']
+layers_data = layers_sheet.values
+layers_columns = next(layers_data)
+rmd_content += f"**Layers of {et_name}**\n\n```{{rosmose}}\n: OSMOSE LAYERS {et_name}\n"
+rmd_content += "\n"
+rmd_content += "|" + "|".join(layers_columns) + "|\n"
+rmd_content += "|:-----|:-----|:-----|:-----|:-----|\n"
+for row in layers_data:
+    rmd_content += "|" + "|".join(str(cell) for cell in row) + "|\n"
+rmd_content += "```\n\n"
+#print(rmd_content)
+
+
+
+
+################################################# Process UNITS tab #####################################
+units_sheet = wb['UNITS']
+units_data = units_sheet.values
+units_et = []
+
+# Iterate through each row in UNITS tab
+for row in units_data:
+    #print(row)
+    units_et.append(row)  # Add the unit name and the type to the list
+#print('unit names: ',units_et)
+print("\n\n\n")
+
+# Generate the Rmd code for units
+rmd_content += f"**Units of {et_name}**\n\n"
+rmd_content += f"```{{rosmose}}\n: OSMOSE UNIT {et_name}\n"
+rmd_content += "\n"
+rmd_content += "|unit name|type|\n"
+rmd_content += "|:-------|:----|\n"
+iter_units_et = iter(units_et) # to convert the list into an iterator
+next(iter_units_et) # remove the title
+for unit_attr in iter_units_et:
+    rmd_content += f"|{unit_attr[0]}|{unit_attr[1]}|\n"
+rmd_content += "```\n\n"
+#print(rmd_content)
+
+
+
+# Generate the Rmd code for unit parameters
+rmd_content += f"**Parameters of units of {et_name}**\n\n"
+iter_units_et = iter(units_et) # to convert the list into an iterator
+next(iter_units_et) # remove the title
+
+for unit_attr in iter_units_et:
+    rmd_content += f"Unit {unit_attr[0]}\n\n```{{rosmose}}\n: OSMOSE UNIT_PARAM {unit_attr[0]}\n\n"
+    rmd_content += "|cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax|\n"
+    rmd_content += "|:----|:----|:----|:----|:---|:---|:---|:---|\n"
+    rmd_content += "|"+"|".join(str(unit_attr) for unit_attr in unit_attr[2:])
+    rmd_content += "|\n"
+    rmd_content += "```\n\n"
+
+#print(rmd_content)
+
+
+
+###################################### Process MSTREAMS tab #####################################
+mstreams_sheet = wb['MSTREAMS']
+mstreams_data = mstreams_sheet.values
+
+unit_separator = "Unit"
+unit_streams = {}
+current_unit = ""
+
+# Iterate through each row in MSTREAMS tab
+for row in mstreams_data:
+    #print(row)
+    # Check if the row indicates a new unit
+    if row[0] == unit_separator:
+        current_unit = row[1]  # Set the current unit
+        unit_streams[current_unit] = []  # Initialize the list of streams for the unit
+    else:
+        # Append the stream to the current unit
+        if len(row) >= 3 and (row[0] is not None and row[0] != 'layer'):  # The row has enough valid elements
+            unit_streams[current_unit].append(row)
+
+#print('these are the unit_streams',unit_streams)
+
+
+# Generate the Rmd code for each unit's streams
+for unit, streams in unit_streams.items():
+    # print('These are unit, streams: ',unit, streams,'\n\n\n\n')
+    rmd_content += f"Unit {unit} streams\n\n"
+    rmd_content += "```{rosmose}\n"
+    rmd_content += f": OSMOSE RESOURCE_STREAMS {unit}\n\n"
+    rmd_content += "|layer|direction|value|\n"
+    rmd_content += "|:----|:-------|:----|\n"
+    iter_streams_et = iter(streams)
+    for stream in iter_streams_et:
+        rmd_content += f"|{stream[0]}|{stream[1]}|{stream[2]}|\n"
+    rmd_content += "```\n\n"
+
+
+#print(rmd_content)
+
+
+
+###################################### Process HSTREAMS tab #####################################
+
+hstreams_sheet = wb['HSTREAMS']
+hstreams_data = hstreams_sheet.values
+
+unit_separator = "Unit"
+unit_hstreams = {}
+current_unit = ""
+
+# Iterate through each row in MSTREAMS tab
+for row in hstreams_data:
+    #print(row)
+    # Check if the row indicates a new unit
+    if row[0] == unit_separator:
+        current_unit = row[1]  # Set the current unit
+        unit_hstreams[current_unit] = []  # Initialize the list of streams for the unit
+    else:
+        # Append the stream to the current unit
+        if len(row) >= 6 and (row[0] is not None and row[0] != 'name'):  # The row has enough valid elements
+            unit_hstreams[current_unit].append(row)
+
+#print('these are the unit_streams',unit_streams)
+
+# Generate the Rmd code for each unit's streams
+for unit, hstreams in unit_hstreams.items():
+    # print('These are unit, hstreams: ',unit, hstreams,'\n\n\n\n')
+    rmd_content += f"Unit {unit} streams\n\n"
+    rmd_content += "```{rosmose}\n"
+    rmd_content += f": OSMOSE HEAT_STREAMS {unit}\n\n"
+    rmd_content += "|name|Tin|Tout|Hin|Hout|DT min/2|alpha|\n"
+    rmd_content += "|:----|:-------|:----|:----|:-------|:----|:----|\n"
+    iter_streams_et = iter(hstreams)
+    for stream in iter_streams_et:
+        rmd_content += f"|{stream[0]}|{stream[1]}|{stream[2]}|{stream[3]}|{stream[4]}|{stream[5]}|{stream[6]}|\n"
+    rmd_content += "```\n\n"
+
+
+
+
+################################# Write the Rmd content to a file ##############################
+with open(f'{et_name}.Rmd', 'w') as file:
+    file.write(rmd_content)
+
+
+print(rmd_content)

@@ -9,9 +9,10 @@ book:
     - index.qmd
     - 01.00-tutorial.qmd
     - 02.00-coolprop.qmd
-    - 03.00-energy_bill.qmd
-    - 04.00-pinch_analysis.qmd
-    - 05.00-conclusions.qmd
+    - 03.00-exceltormd.qmd
+    - 04.00-energy_bill.qmd
+    - 05.00-pinch_analysis.qmd
+    - 06.00-conclusions.qmd
   description: "Report Summary"
   navbar:
     search: true
