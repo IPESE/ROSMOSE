@@ -7,12 +7,7 @@ There is the possibility to convert a user friendly Excel template into a Rmd/Qm
 
 The following code allows creating an ET using and excel template.
 
-```{python}
-print("hello world")
-```
-
-
-<!-- In the terminal, be sure that the following command is run: `pip install openpyxl -t "D:\YOURFOLDER\venv\Lib\site-packages"`, or change your path accordingly -->
+<!-- Be sure that the following library is installed: `pip install openpyxl -t "D:\ROSMOSE\venv\Lib\site-packages"`, or change your path accordingly -->
 
 ```{python, echo = F, eval = T}
 
@@ -21,7 +16,7 @@ import os
 
 # Change this ET name and ET path accordingly
 et_name = 'HeatpumpvendorsET'
-folder_path = "D:\TESTHPCYRILLE\codes_02_heat_recovery\model\HeatpumpVendors"
+folder_path = "D:\ROSMOSE\codes_02_heat_recovery\model\HeatpumpVendors"
 
 # Load the Excel file
 excel_file_path = os.path.join(folder_path, et_name + '.xlsx')
