@@ -1,0 +1,199 @@
+# MyET
+
+```{rosmose}
+! OSMOSE ET MyET
+```
+
+**Layers of MyET**
+
+```{rosmose}
+: OSMOSE LAYERS MyET
+
+|Layer|Display name|shortname|Unit|Color|
+|:-----|:-----|:-----|:-----|:-----|
+|Milk|milk|mk|kg/h|blue|
+|Water|water|wt|kg/h|green|
+|ConMilk|cmilk|cmk|kg/h|grey|
+|Cheese|cheese|ch|kg/h|pink|
+|Soda|soda|sd|kg/h|red|
+|Waste|waste|wt|kg/h|white|
+|Biogas|biogas|bg|kg/h|yellow|
+```
+
+**Units of MyET**
+
+```{rosmose}
+: OSMOSE UNIT MyET
+
+|unit name|type|
+|:-------|:----|
+|Pasteurization|Process|
+|Evaporation|Process|
+|Cheeseprod|Process|
+|Cleaning|Process|
+|Biodigestion|Utility|
+```
+
+**Parameters of units of MyET**
+
+Unit Pasteurization
+
+```{rosmose}
+: OSMOSE UNIT_PARAM Pasteurization
+
+|cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax|
+|:----|:----|:----|:----|:---|:---|:---|:---|
+|0|0|0|0|0|0|1|1|
+```
+
+Unit Evaporation
+
+```{rosmose}
+: OSMOSE UNIT_PARAM Evaporation
+
+|cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax|
+|:----|:----|:----|:----|:---|:---|:---|:---|
+|0|0|0|0|0|0|1|1|
+```
+
+Unit Cheeseprod
+
+```{rosmose}
+: OSMOSE UNIT_PARAM Cheeseprod
+
+|cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax|
+|:----|:----|:----|:----|:---|:---|:---|:---|
+|0|0|0|0|0|0|1|1|
+```
+
+Unit Cleaning
+
+```{rosmose}
+: OSMOSE UNIT_PARAM Cleaning
+
+|cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax|
+|:----|:----|:----|:----|:---|:---|:---|:---|
+|0|0|0|0|0|0|1|1|
+```
+
+Unit Biodigestion
+
+```{rosmose}
+: OSMOSE UNIT_PARAM Biodigestion
+
+|cost1|cost2|cinv1|cinv2|imp1|imp2|fmin|fmax|
+|:----|:----|:----|:----|:---|:---|:---|:---|
+|0|0|0|0|0|0|0|1|
+```
+
+Unit Pasteurization streams
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS Pasteurization
+
+|layer|direction|value|
+|:----|:-------|:----|
+|Milk|in|10|
+|Milk|out|10|
+```
+
+Unit Evaporation streams
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS Evaporation
+
+|layer|direction|value|
+|:----|:-------|:----|
+|Milk|in|10|
+|Water|out|9|
+|ConMilk|out|1|
+```
+
+Unit Cheeseprod streams
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS Cheeseprod
+
+|layer|direction|value|
+|:----|:-------|:----|
+|ConMilk|in|1|
+|Cheese|out|0.3|
+|Waste|out|0.7|
+```
+
+Unit Cleaning streams
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS Cleaning
+
+|layer|direction|value|
+|:----|:-------|:----|
+|Soda|in|2|
+```
+
+Unit Biodigestion streams
+
+```{rosmose}
+: OSMOSE RESOURCE_STREAMS Biodigestion
+
+|layer|direction|value|
+|:----|:-------|:----|
+|Waste|in|0.7|
+|Biogas|out|0.05|
+```
+
+Unit Evaporation streams
+
+```{rosmose}
+: OSMOSE HEAT_STREAMS Evaporation
+
+|name|Tin|Tout|Hin|Hout|DT min/2|alpha|
+|:----|:-------|:----|:----|:-------|:----|:----|
+|heatstream1|30|150|0|1000|2|1|
+```
+
+Unit Pasteurization streams
+
+```{rosmose}
+: OSMOSE HEAT_STREAMS Pasteurization
+
+|name|Tin|Tout|Hin|Hout|DT min/2|alpha|
+|:----|:-------|:----|:----|:-------|:----|:----|
+|heatstream2|30|120|0|500|2|1|
+|heatstream3|120|30|600|0|2|1|
+```
+
+Unit Cheeseprod streams
+
+```{rosmose}
+: OSMOSE HEAT_STREAMS Cheeseprod
+
+|name|Tin|Tout|Hin|Hout|DT min/2|alpha|
+|:----|:-------|:----|:----|:-------|:----|:----|
+|heatstream4|30|200|2500|0|5|1|
+|heatstream5|150|30|0|200|5|1|
+```
+
+Unit Cleaning streams
+
+```{rosmose}
+: OSMOSE HEAT_STREAMS Cleaning
+
+|name|Tin|Tout|Hin|Hout|DT min/2|alpha|
+|:----|:-------|:----|:----|:-------|:----|:----|
+|heatstream5|30|200|0|1360|5|1|
+|heatstream6|200|200.01|0|4600|1|1|
+|heatstream7|200.01|300|0|400|1|1|
+```
+
+Unit Biodigestion streams
+
+```{rosmose}
+: OSMOSE HEAT_STREAMS Biodigestion
+
+|name|Tin|Tout|Hin|Hout|DT min/2|alpha|
+|:----|:-------|:----|:----|:-------|:----|:----|
+|heatstream8|30|50|0|800|2|1|
+|heatstream9|50|30|550|0|5|1|
+```
+

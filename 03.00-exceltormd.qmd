@@ -15,8 +15,9 @@ import openpyxl
 import os
 
 # Change this ET name and ET path accordingly
-et_name = 'HeatpumpvendorsET'
-folder_path = "D:\ROSMOSE\codes_02_heat_recovery\model\HeatpumpVendors"
+et_name = 'MyET'
+folder_path = "D:\ROSMOSE\codes_02_heat_recovery\model\MyET" # update with your absolute path 
+
 
 # Load the Excel file
 excel_file_path = os.path.join(folder_path, et_name + '.xlsx')
